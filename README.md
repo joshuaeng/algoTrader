@@ -62,22 +62,27 @@ Here is an example of a simple algorithm that subscribes to real-time trades and
 
 ```python
 from src.algo import Algo
+import configparser
 import asyncio
 
 class MyAlgo(Algo):
     async def run(self):
+        config = configparser.ConfigParser()
+        config.read('config.ini')
+        tickers = config['DEFAULT']['TICKERS'].split(',')
+
         async def on_trade(data):
             print("New trade:", data)
 
         async def on_quote(data):
             print("New quote:", data)
 
-        self.alpaca_market_data.subscribe_stock_trades(on_trade, *self.config['DEFAULT']['TICKERS'].split(','))
-        self.alpaca_market_data.subscribe_stock_quotes(on_quote, *self.config['DEFAULT']['TICKERS'].split(','))
+        self.alpaca_market_data.subscribe_stock_trades(on_trade, *tickers)
+        self.alpaca_market_data.subscribe_stock_quotes(on_quote, *tickers)
 
         await self.alpaca_market_data.start_streams()
 
 if __name__ == '__main__':
     algo = MyAlgo()
     asyncio.run(algo.run())
-```# algoTrader
+```
