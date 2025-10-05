@@ -1,4 +1,4 @@
 config.ini
 venv/
-
+.idea
 .DS_Store
