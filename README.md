@@ -1,6 +1,7 @@
 # Trading Algo Framework
 
 This is a Python-based framework for developing and executing automated trading algorithms using the Alpaca API.
+To use this framework you first need to create an alpaca account. More information on: https://alpaca.markets/
 
 ## Features
 
@@ -15,7 +16,6 @@ This is a Python-based framework for developing and executing automated trading 
 ```
 .
 ├── config.ini
-├── main.py
 ├── README.md
 ├── requirements.txt
 └── src
@@ -37,15 +37,8 @@ This is a Python-based framework for developing and executing automated trading 
     ```
     pip install -r requirements.txt
     ```
-3.  Create a `config.ini` file and add your Alpaca API keys:
-    ```ini
-    [DEFAULT]
-    TICKERS = SPY,AAPL
 
-    [alpaca]
-    api_key = YOUR_API_KEY
-    secret_key = YOUR_SECRET_KEY
-    ```
+3.  Copy your API and secret key into config.ini.
 
 ## Usage
 
@@ -62,27 +55,23 @@ Here is an example of a simple algorithm that subscribes to real-time trades and
 
 ```python
 from src.algo import Algo
-import configparser
+from src.data_cache import DataCache
 import asyncio
 
 class MyAlgo(Algo):
     async def run(self):
-        config = configparser.ConfigParser()
-        config.read('config.ini')
-        tickers = config['DEFAULT']['TICKERS'].split(',')
+        tickers = ["SPY", "AAPL"]
 
-        async def on_trade(data):
-            print("New trade:", data)
+        async def on_new_price(data):
+            print("New bar data:", data)
+            print("Executing algo logic...")
 
-        async def on_quote(data):
-            print("New quote:", data)
-
-        self.alpaca_market_data.subscribe_stock_trades(on_trade, *tickers)
-        self.alpaca_market_data.subscribe_stock_quotes(on_quote, *tickers)
+        self.alpaca_market_data.subscribe_stock_bars(handler=on_new_price, tickers=tickers)
 
         await self.alpaca_market_data.start_streams()
 
 if __name__ == '__main__':
-    algo = MyAlgo()
+    cache = DataCache()
+    algo = MyAlgo(cache=cache)
     asyncio.run(algo.run())
-```
+```# algoTrader
