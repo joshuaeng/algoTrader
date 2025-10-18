@@ -1,4 +1,4 @@
-from .base import AlpacaConnector
+from src.alpaca_wrapper.base import AlpacaConnector
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.live import StockDataStream, CryptoDataStream, NewsDataStream
 from alpaca.data.requests import (
@@ -27,10 +27,9 @@ class AlpacaMarketData(AlpacaConnector):
         Initializes the AlpacaMarketData class.
         """
         super().__init__()
+        self.crypto_stream = CryptoDataStream(self.api_key, self.secret_key)
         self.client = StockHistoricalDataClient(self.api_key, self.secret_key)
         self.stock_stream = StockDataStream(self.api_key, self.secret_key)
-        self.crypto_stream = CryptoDataStream(self.api_key, self.secret_key)
-        self.news_stream = NewsDataStream(self.api_key, self.secret_key)
         self.stock_subscriptions = []
         self.crypto_subscriptions = []
         self.news_subscriptions = []
@@ -47,7 +46,7 @@ class AlpacaMarketData(AlpacaConnector):
 
         Returns:
             pd.DataFrame: A pandas DataFrame with the historical data.
-        
+
         Raises:
             APIError: If there is an error from the Alpaca API.
         """
@@ -255,17 +254,6 @@ class AlpacaMarketData(AlpacaConnector):
         self.crypto_subscriptions.extend(symbols)
         self.crypto_stream.subscribe_bars(handler, *symbols)
 
-    def subscribe_news(self, handler, *tickers):
-        """
-        Subscribe to real-time news.
-
-        Args:
-            handler (function): The callback function to handle the news data.
-            *tickers (str): The ticker symbols to subscribe to.
-        """
-        self.news_subscriptions.extend(tickers)
-        self.news_stream.subscribe_news(handler, *tickers)
-
     async def start_streams(self):
         """
         Starts the real-time data streams.
@@ -275,8 +263,6 @@ class AlpacaMarketData(AlpacaConnector):
             streams.append(self.stock_stream._run_forever())
         if self.crypto_subscriptions:
             streams.append(self.crypto_stream._run_forever())
-        if self.news_subscriptions:
-            streams.append(self.news_stream._run_forever())
         
         if streams:
             await asyncio.gather(*streams)

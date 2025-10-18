@@ -1,3 +1,4 @@
+import asyncio
 from abc import ABC, abstractmethod
 from src.alpaca_wrapper.market_data import AlpacaMarketData
 from src.alpaca_wrapper.trading import AlpacaTrading
@@ -22,9 +23,9 @@ class Algo(ABC):
         self.cache = cache
 
     @abstractmethod
-    async def run(self):
-        """
-        This is the main method of the algorithm. It should be implemented by
-        the child classes.
-        """
+    async def start(self):
         pass
+
+
+
+

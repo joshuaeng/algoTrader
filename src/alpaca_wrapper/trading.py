@@ -1,6 +1,6 @@
 from .base import AlpacaConnector
 from alpaca.trading.client import TradingClient
-from alpaca.trading.requests import MarketOrderRequest
+from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
 from alpaca.common.exceptions import APIError
 
@@ -78,6 +78,38 @@ class AlpacaTrading(AlpacaConnector):
         except APIError as e:
             print(f"Error submitting market order for {ticker}: {e}")
             raise e
+
+    def submit_limit_order(self, ticker: str, price: float, qty: float, side: str):
+        """
+        Submit a limit order.
+
+        Args:
+            ticker (str): The ticker symbol.
+            price (float): The limit price.
+            qty (float): The quantity to trade.
+            side (str): The side of the order ('buy' or 'sell').
+
+        Returns:
+            Order: The order object.
+
+        Raises:
+            APIError: If there is an error from the Alpaca API.
+        """
+        try:
+            limit_order_data = LimitOrderRequest(
+                limit_price=price,
+                symbol=ticker,
+                qty=qty,
+                side=OrderSide.BUY if side.lower() == 'buy' else OrderSide.SELL,
+                time_in_force=TimeInForce.GTC
+            )
+            return self.client.submit_order(order_data=limit_order_data)
+        except APIError as e:
+            print(f"Error submitting limit order for {ticker}: {e}")
+            raise e
+
+    def cancel_order(self, order_id: str):
+        self.client.cancel_order_by_id(order_id)
 
     def get_all_orders(self):
         """
