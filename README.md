@@ -54,9 +54,10 @@ To use this framework you first need to create an alpaca account. More informati
 Here is an example of a simple algorithm that subscribes to real-time trades and quotes for the tickers specified in the `config.ini` file:
 
 ```python
-from src.algo import Algo
-from src.data_cache import DataCache
+from src.algo_toolkit.algo import Algo
+from src.algo_toolkit.data_cache import DataCache
 import asyncio
+
 
 class MyAlgo(Algo):
     async def run(self):
@@ -69,6 +70,7 @@ class MyAlgo(Algo):
         self.alpaca_market_data.subscribe_stock_bars(handler=on_new_price, tickers=tickers)
 
         await self.alpaca_market_data.start_streams()
+
 
 if __name__ == '__main__':
     cache = DataCache()
