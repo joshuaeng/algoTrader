@@ -45,7 +45,7 @@ class SpreadCalculator(TradingAgent):
         if 'instruments' not in self.config or not self.config['instruments']:
             raise ValueError("SpreadCalculator config requires a non-empty 'instruments' list.")
 
-    async def handle_data(self, data: Any):
+    async def start(self, data: Any):
         """Processes incoming quote data to calculate and cache the rolling average spread."""
         instrument = getattr(data, 'symbol', None)
         if not instrument or instrument not in self.instruments:
