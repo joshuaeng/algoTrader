@@ -1,8 +1,8 @@
-
 import datetime
 from typing import Dict, Any, List
-import numpy as np
+from collections import deque
 
+import numpy as np
 from loguru import logger
 
 from src.core.data_cache import DataCache
@@ -11,13 +11,15 @@ from src.core.trading_agent import TradingAgent
 
 
 class SpreadCalculator(TradingAgent):
-    """A TradingAgent that calculates the bid-ask spread for instruments and caches it."""
+    """A TradingAgent that calculates a rolling average of the bid-ask spread."""
 
     def __init__(self, config: Dict[str, Any], data_cache: DataCache):
         """Initializes the SpreadCalculator agent.
 
         The configuration dictionary should contain:
         - 'instruments': A list of instrument symbols to monitor.
+        - 'window_size': (Optional) The maximum number of recent spreads to keep for the average. Defaults to 100.
+        - 'min_data_size': (Optional) The minimum number of spreads required before calculating an average. Defaults to 20.
 
         Args:
             config: The configuration dictionary for the agent.
@@ -25,10 +27,17 @@ class SpreadCalculator(TradingAgent):
         """
         super().__init__(config, data_cache)
         self.instruments: List[str] = self.config['instruments']
-        self.min_data_size: int = self.config.get('min_data_size', 60)
+        self.window_size: int = self.config.get('window_size', 100)
+        self.min_data_size: int = self.config.get('min_data_size', 20)
+
+        # In-memory state to hold recent spread values for each instrument
+        self.spread_history: Dict[str, deque] = {
+            instrument: deque(maxlen=self.window_size) for instrument in self.instruments
+        }
 
         logger.info(
-            f"SpreadCalculator manipulator initialized for {len(self.instruments)} instruments."
+            f"SpreadCalculator agent initialized for {len(self.instruments)} instruments. "
+            f"Window size: {self.window_size}, Min data: {self.min_data_size}"
         )
 
     def validate_config(self):
@@ -36,8 +45,8 @@ class SpreadCalculator(TradingAgent):
         if 'instruments' not in self.config or not self.config['instruments']:
             raise ValueError("SpreadCalculator config requires a non-empty 'instruments' list.")
 
-    async def start(self, data: Any):
-        """Processes incoming quote data to calculate and cache the spread."""
+    async def handle_data(self, data: Any):
+        """Processes incoming quote data to calculate and cache the rolling average spread."""
         instrument = getattr(data, 'symbol', None)
         if not instrument or instrument not in self.instruments:
             return
@@ -47,28 +56,31 @@ class SpreadCalculator(TradingAgent):
         try:
             quote = Quote.init_from_data(data)
             spread_value = quote.spread
-            spreads: list = self.data_cache.get(f"_sys/SPREADS/{instrument}/SPREAD_VALUES")
 
-            if len(spreads) > self.min_data_size:
+            if spread_value is None or spread_value <= 0:
+                return  # Ignore invalid or zero spreads
+
+            # Get the specific deque for this instrument and add the new value
+            history = self.spread_history[instrument]
+            history.append(spread_value)
+
+            # Only calculate and cache if we have enough data
+            if len(history) >= self.min_data_size:
+                average_spread = np.average(history)
+
                 spread = Spread(
                     instrument=instrument,
                     timestamp=now,
-                    value=np.average(spreads)
+                    value=average_spread
                 )
+
+                # Publish the calculated average spread to the cache
+                self.data_cache.set(f"_sys/SPREAD/{instrument}/value", value=spread)
 
                 logger.debug(
                     f"[{instrument}] Processed quote at {now.isoformat()} | "
-                    f"Spread: {spread_value:.4f}"
+                    f"Avg Spread: {average_spread:.4f} (from {len(history)} values)"
                 )
 
-                self.data_cache.set(f"_sys/SPREADS/{instrument}/SPREAD", value=spread)
-
-            spreads.append(spread_value)
-            self.data_cache.set(f"_sys/SPREADS/{instrument}/SPREAD_VALUES", value=spreads)
-
         except Exception as e:
-            logger.exception(f"[{instrument}] Error processing quote in SpreadCalculator: {e}")
-
-
-
-
+            logger.exception(f"[{instrument}] Error in SpreadCalculator: {e}")

@@ -25,7 +25,7 @@ class DeltaHedger(TradingAgent):
           Defaults to 0.
         """
         super().__init__(config, data_cache)
-        self.poll_interval: float = self.config.get('poll_interval', 5.0)
+        self.poll_interval: float = self.config.get('poll_interval', 30.0)
         self.instrument_delta_limit: float = self.config.get('instrument_delta_limit', 0.0)
         self.positions: Optional[List[Position]] = None
         self._last_run_time: Optional[datetime.datetime] = None
@@ -65,9 +65,6 @@ class DeltaHedger(TradingAgent):
                 market_value = float(position.market_value)
                 current_price = float(position.current_price)
                 difference = market_value - self.instrument_delta_limit
-
-                if abs(difference) < (current_price * 0.5):  # Avoid tiny, dusty orders
-                    continue
 
                 qty = int(difference // current_price)
                 side = "sell" if qty > 0 else "buy"
