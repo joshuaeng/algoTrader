@@ -65,7 +65,7 @@ class SpreadCalculator(TradingAgent):
 
             # Get the specific deque for this instrument and add the new value
             history = self.spread_history[instrument]
-            history.append(spread_value)
+            history.append(spread_value/quote.mid)
 
             # Only calculate and cache if we have enough data
             if len(history) >= self.min_data_size:
