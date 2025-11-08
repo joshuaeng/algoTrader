@@ -11,75 +11,72 @@ from src.alpaca_wrapper.trading import AlpacaTrading
 
 
 class TradingHub:
-    """The central trading hub for running a strategy.
-
-    This class acts as the engine for a trading strategy. It manages the connection
-    to the market data stream, hosts and runs a series of 'TradingAgent' plugins,
-    and dispatches incoming data to them for processing.
-    """
+    """The central engine for a trading strategy."""
 
     def __init__(self, cache: DataCache = None):
         """Initializes the TradingHub."""
         self.alpaca_market_data: AlpacaMarketData = AlpacaMarketData()
         self.cache = cache if cache else DataCache()
         self.alpaca_trading: AlpacaTrading = AlpacaTrading()
-        self.agents: List[TradingAgent] = []
+        self.event_agents: List[TradingAgent] = []
+        self.periodic_agents: List[TradingAgent] = []
         self._subscribed_quotes: Set[str] = set()
 
     def add_agent(self, agent: TradingAgent):
-        """Adds a trading agent to the hub.
-
-        The hub will collect all unique instrument symbols from its agents
-        and subscribe to the necessary data streams.
-
-        Args:
-            agent: An instance of a TradingAgent subclass.
-        """
-        self.agents.append(agent)
+        """Adds a trading agent to the hub, sorting it as event-driven or periodic."""
         agent.set_trading_client(self.alpaca_trading)
-        # Collect instruments to subscribe to
-        if hasattr(agent, 'instruments') and agent.instruments:
-            self._subscribed_quotes.update(agent.instruments)
-        logger.info(f"Added agent: {agent.__class__.__name__}")
+        if agent.agent_type == 'periodic':
+            self.periodic_agents.append(agent)
+            logger.info(f"Added periodic agent: {agent.__class__.__name__}")
+        else:
+            self.event_agents.append(agent)
+            if hasattr(agent, 'instruments') and agent.instruments:
+                self._subscribed_quotes.update(agent.instruments)
+            logger.info(f"Added event-driven agent: {agent.__class__.__name__}")
 
     async def _data_handler(self, data):
-        """Unified callback for handling all incoming market data.
+        """Dispatches market data to all event-driven agents."""
+        for agent in self.event_agents:
+            asyncio.create_task(agent.start(data))
 
-        This method receives data from the market data stream and passes it
-        to all registered agents to be processed concurrently.
-
-        Args:
-            data: The data object from the Alpaca stream (e.g., Quote, Trade).
-        """
-        # Run all agent handlers concurrently for the same piece of data
-        await asyncio.gather(
-            *[
-                agent.start(data)
-                for agent in self.agents
-            ]
-        )
+    @staticmethod
+    async def _periodic_agent_loop(agent: TradingAgent):
+        """A dedicated loop for running a single periodic agent."""
+        logger.info(f"Starting loop for periodic agent '{agent.__class__.__name__}' with period {agent.throttle}.")
+        while True:
+            try:
+                await agent.run()
+            except Exception as e:
+                logger.exception(f"Error in periodic agent {agent.__class__.__name__}: {e}")
+            await asyncio.sleep(agent.throttle.total_seconds())
 
     async def start(self):
-        """Starts the trading hub and its data streams.
-
-        This method subscribes to the required market data streams based on the
-        instruments specified in the registered agents and starts listening
-        for data.
         """
-        if not self.agents:
-            logger.warning("No agents have been added. The trading hub will not process any data.")
+        Starts the trading hub with a supervisor loop.
+        If a connection limit error occurs, it will wait and retry.
+        """
+        if not self.event_agents and not self.periodic_agents:
+            logger.warning("No agents added. The trading hub will do nothing.")
             return
 
-        if not self._subscribed_quotes:
-            logger.warning("No instruments to subscribe to. Add agents with instrument lists.")
-            return
+        while True:
+            tasks = []
+            # Start periodic agent loops
+            for agent in self.periodic_agents:
+                tasks.append(asyncio.create_task(self._periodic_agent_loop(agent)))
 
-        logger.info(f"TradingHub starting. Subscribing to quotes for: {list(self._subscribed_quotes)}")
+            # Start market data stream for event-driven agents
+            if self.event_agents:
+                if not self._subscribed_quotes:
+                    logger.warning("No instruments to subscribe to for event-driven agents.")
+                else:
+                    logger.info(f"Subscribing to quotes for: {list(self._subscribed_quotes)}")
+                    self.alpaca_market_data.subscribe_stock_quotes(self._data_handler, *list(self._subscribed_quotes))
+                    tasks.append(asyncio.create_task(self.alpaca_market_data.start_streams()))
 
-        try:
-            self.alpaca_market_data.subscribe_stock_quotes(self._data_handler, *list(self._subscribed_quotes))
-            await self.alpaca_market_data.start_streams()
-            logger.success("TradingHub streams started successfully.")
+            if not tasks:
+                logger.warning("Hub started but no active tasks to run.")
+                return
 
-        except Exception as e:
-            logger.exception(f"Failed to start TradingHub streams: {e}")
+            logger.success("TradingHub started successfully with {} active tasks.", len(tasks))
+            await asyncio.gather(*tasks)

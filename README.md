@@ -21,6 +21,32 @@ The data flows in a clear, one-way direction:
 
 `Market Data -> TradingHub -> (All TradingAgents) -> DataCache -> Your Logic`
 
+## The Philosophy: Layering Logic with Agents
+
+Think of building a trading strategy like managing a team of specialists. Instead of one person trying to do everything, you have a team where each member has a specific job. This framework is designed to work the same way.
+
+The `TradingHub` is the team manager. It receives raw information (market data) and passes it to every specialist (`TradingAgent`) on the team simultaneously. Each agent is a "layer" of logic that processes the information and adds its own insight.
+
+#### An Example: A Market-Making Strategy
+
+Imagine a simple market-making bot. You could build it by layering these agents:
+
+*   **Layer 1: The `Spotter` Agent.** Its only job is to look at the raw order book data and determine the "true" fair price of the asset. It then writes this price to the `DataCache`.
+
+*   **Layer 2: The `Volatility` Agent.** This agent calculates the market's recent volatility. A volatile market might mean you want a wider, safer spread. It writes the current volatility level to the `DataCache`.
+
+*   **Layer 3: The `Spread` Agent.** This agent reads the volatility from the cache and decides what the bid-ask spread should be. A calm market gets a tight spread, a choppy market gets a wide one. It writes the desired spread to the `DataCache`.
+
+*   **Layer 4: The `QuoteManager` Agent.** This agent reads the fair price (from Layer 1) and the desired spread (from Layer 3) and is responsible for placing and managing the actual buy and sell orders via the `trading_client`.
+
+Your main `trading_logic` loop then becomes very simple: it might just monitor the overall profit and loss by reading from the cache, without needing to know the details of how prices are calculated or orders are placed.
+
+#### Benefits of this Approach
+
+*   **Modularity:** Each piece of logic is self-contained. The `Spotter` doesn't need to know how `Volatility` is calculated. This makes the code easier to understand, debug, and test.
+*   **Reusability:** The `Spotter` agent you use for this strategy can be dropped into a completely different arbitrage strategy with no changes.
+*   **Scalability:** Want to add a new feature, like an agent that manages inventory risk? Just create a new agent and add it to the hub. The existing agents don't need to be modified.
+
 ## Project Structure
 
 ```
@@ -33,7 +59,8 @@ The data flows in a clear, one-way direction:
     ├───core/
     │   ├───trading_hub.py
     │   ├───trading_agent.py
-    │   └───data_cache.py
+    │   ├───data_cache.py
+    │   └───exceptions.py
     ├───agents/
     │   ├───spotter.py
     │   ├───spread_calculator.py
@@ -64,10 +91,10 @@ The data flows in a clear, one-way direction:
 
 ## Usage Guide
 
-The `examples/shadow_market_making_algo.py` script provides a complete example of how to use the framework. Here is a step-by-step breakdown.
+The `examples/shadow_market_making_algo.py` script provides a complete, up-to-date example of how to use the framework. Here is a breakdown of the key steps.
 
 ### 1. Initialize Core Components
-First, create instances of the `TradingHub` and the `DataCache` that will be shared across the system.
+First, create instances of the `TradingHub` and the `DataCache`.
 
 ```python
 from src.core.trading_hub import TradingHub
@@ -77,56 +104,24 @@ shared_cache = DataCache()
 trading_hub = TradingHub(cache=shared_cache)
 ```
 
-### 2. Configure and Create Agents
-For each agent you want to use, define a configuration dictionary and create an instance of it.
+### 2. Configure and Add Agents
+For each agent, define its configuration and instantiate it, telling the hub whether it is `'event_driven'` or `'periodic'`.
 
 ```python
-from src.agents.spotter import Spotter
-from src.agents.spread_calculator import SpreadCalculator
+# Define configurations for your agents
+spotter_config = {'instruments': ["AAPL"], 'throttle': '500ms'}
+delta_hedger_config = {'throttle': '30s'}
 
-spotter_config = {
-    'instruments': ["AAPL"],
-    'fair_price_method': 'CROSSED_VWAP'
-}
-spread_calc_config = {
-    'instruments': ["AAPL"],
-    'window_size': 100
-}
+# Instantiate and add agents to the hub
+# Spotter is event-driven by default
+trading_hub.add_agent(Spotter(config=spotter_config, data_cache=shared_cache))
 
-spotter = Spotter(config=spotter_config, data_cache=shared_cache)
-spread_calculator = SpreadCalculator(config=spread_calc_config, data_cache=shared_cache)
+# DeltaHedger is periodic by default
+trading_hub.add_agent(DeltaHedger(config=delta_hedger_config, data_cache=shared_cache))
 ```
 
-### 3. Add Agents to the Hub
-Register each agent with the `TradingHub` instance. The hub will automatically provide the agent with the trading client and subscribe to the required market data.
-
-```python
-trading_hub.add_agent(spotter)
-trading_hub.add_agent(spread_calculator)
-```
-
-### 4. Write Your Core Logic
-Your primary trading logic should live in its own `async` function. It typically runs in a loop, reading the latest processed data from the cache (which the agents are populating in the background) and making high-level decisions.
-
-```python
-async def trading_logic(hub: TradingHub):
-    while True:
-        # Read the latest data processed by the agents
-        spot_price_data = hub.cache.get("_sys/SPOTTER/AAPL/SPOT")
-        spread_data = hub.cache.get("_sys/SPREAD/AAPL/value")
-
-        if spot_price_data and spread_data:
-            fair_price = spot_price_data.fair_price
-            average_spread = spread_data.value
-            
-            print(f"Latest Fair Price: {fair_price}, Average Spread: {average_spread}")
-            # --- Your decision-making logic goes here ---
-
-        await asyncio.sleep(1) # Loop every second
-```
-
-### 5. Start the System
-Finally, use `asyncio` to run the `TradingHub` and your `trading_logic` concurrently.
+### 3. Start the Hub
+The `TradingHub` manages the entire lifecycle of all agents and data streams. The `start()` method is a blocking call that will run until your application is interrupted.
 
 ```python
 import asyncio
@@ -134,42 +129,74 @@ import asyncio
 async def main():
     # ... (setup code from previous steps) ...
 
-    # Run the hub in the background
-    hub_task = asyncio.create_task(trading_hub.start())
-
-    # Run your logic in the foreground
-    logic_task = asyncio.create_task(trading_logic(trading_hub))
-
-    await asyncio.gather(hub_task, logic_task)
+    # Start the hub. This will run forever.
+    await trading_hub.start()
 
 if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-## Available `TradingAgent`s
+This design removes the need for manual task management. Your application's logic is now fully contained within your custom agents.
+
+## The TradingAgent
+
+### Agent Types
+
+There are two types of agents, specified by the `agent_type` parameter during instantiation:
+
+1.  **`'event_driven'` (Default)**: These agents react to market data. Their execution rate is controlled by the `'throttle'` configuration, which sets the *minimum time between runs*.
+2.  **`'periodic'`**: These agents run on a fixed schedule. Their execution rate is controlled by the `'throttle'` configuration, which sets the *exact period between runs*.
+
+Some agents, like `DeltaHedger`, are periodic by nature and will override the `agent_type` you provide.
+
+### Concurrency and Performance
+The `TradingHub` runs each agent concurrently. When new market data arrives, the hub creates a separate asynchronous task for each event-driven agent. Periodic agents each run in their own parallel loop. This ensures that a slow or throttled agent will **not** block or delay any other agent.
+
+### Available Agents
 
 This framework comes with a few pre-built agents:
 
-| Agent | Description | Configuration Options |
-| :--- | :--- | :--- |
-| **`Spotter`** | Calculates a fair price for an instrument from quote data. | `instruments` (list), `fair_price_method` (str), `update_freq` (float) |
-| **`SpreadCalculator`** | Calculates a rolling average of the bid-ask spread. | `instruments` (list), `window_size` (int), `min_data_size` (int) |
-| **`DeltaHedger`** | Periodically monitors and hedges portfolio delta for open positions. | `poll_interval` (float), `instrument_delta_limit` (float) |
+| Agent | Default Type | Description | Key Configuration |
+| :--- | :--- | :--- | :--- |
+| **`Spotter`** | Event-Driven | Calculates a fair price from quote data. | `instruments`, `throttle` |
+| **`SpreadCalculator`**| Event-Driven | Calculates a rolling average of the bid-ask spread. | `instruments`, `throttle` |
+| **`DeltaHedger`** | Periodic | Monitors and hedges portfolio delta. | `throttle`, `instrument_delta_limit`|
 
+### Creating a Custom Agent
 
-## Creating a Custom `TradingAgent`
+To create your own agent, inherit from `TradingAgent`, implement the `run` method, and be sure to accept `**kwargs` in your `__init__` to pass to the parent class.
 
-To create your own agent, simply inherit from the `TradingAgent` base class and implement your logic in the `handle_data` method.
-
+#### Event-Driven Agent Example
 ```python
 from src.core.trading_agent import TradingAgent
 
-class MyCustomAgent(TradingAgent):
-    async def start(self, data: any):
-        # This method is called for every data point from the stream
-        print(f"My custom agent received data: {data}")
+class MyEventAgent(TradingAgent):
+    def __init__(self, config: Dict, data_cache: DataCache, **kwargs):
+        # This agent is event-driven by default
+        super().__init__(config, data_cache, **kwargs)
+        # ... your init logic ...
 
-        # --- Your logic here ---
-        # You can read from self.data_cache, write to it,
-        # or place orders using self.trading_client.
+    async def run(self, data: any):
+        # Called for market data events, respecting the 'throttle'.
+        print(f"My agent received data: {data}")
 ```
+
+#### Periodic Agent Example
+```python
+from src.core.trading_agent import TradingAgent
+
+class MyPeriodicAgent(TradingAgent):
+    def __init__(self, config: Dict, data_cache: DataCache, **kwargs):
+        # Explicitly set the agent type to 'periodic'
+        super().__init__(config, data_cache, agent_type='periodic', **kwargs)
+        # ... your init logic ...
+
+    async def run(self, data: Optional[Any] = None):
+        # Called every 'throttle' period. 'data' will be None.
+        print(f"Running my periodic task!")
+```
+
+## Error Handling
+The framework includes specific handling for common connection issues. If the application fails to start due to exceeding Alpaca's connection limit, it will log a critical error and raise a `ConnectionLimitExceededError`.
+
+This typically happens if you are running multiple instances of the application with the same API keys.

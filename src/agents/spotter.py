@@ -1,5 +1,5 @@
 import asyncio
-import datetime
+from datetime import datetime
 from typing import Dict, Any, List
 
 from loguru import logger
@@ -12,33 +12,14 @@ from src.core.trading_agent import TradingAgent
 class Spotter(TradingAgent):
     """A TradingAgent that calculates the spot price for instruments and caches it."""
 
-    def __init__(self, config: Dict[str, Any], data_cache: DataCache):
-        """Initializes the Spotter agent.
-
-        The configuration dictionary should contain:
-        - 'instruments': A list of instrument symbols to monitor.
-        - 'update_freq': (Optional) Minimum time between updates per instrument (in seconds). Defaults to 1.0.
-        - 'fair_price_method': (Optional) The method to use for fair price calculation (VWAP, CROSSED_VWAP, MID).
-          Defaults to CROSSED_VWAP.
-
-        Args:
-            config: The configuration dictionary for the agent.
-            data_cache: The shared DataCache instance.
-        """
-        super().__init__(config, data_cache)
+    def __init__(self, config: Dict[str, Any], data_cache: DataCache, **kwargs):
+        """Initializes the Spotter agent."""
+        super().__init__(config, data_cache, agent_type='event_driven', **kwargs)
         self.instruments: List[str] = self.config['instruments']
-        self.update_freq: float = self.config.get('update_freq', 1.0)
         self.fair_price_method: FairPriceMethod = FairPriceMethod(self.config.get('fair_price_method', 'CROSSED_VWAP'))
 
-        # Per-instrument throttling state
-        self._last_update_time: Dict[str, datetime.datetime] = {}
-        self._locks: Dict[str, asyncio.Lock] = {
-            instrument: asyncio.Lock() for instrument in self.instruments
-        }
-
         logger.info(
-            f"Spotter manipulator initialized for {len(self.instruments)} instruments. "
-            f"Update frequency is {self.update_freq}s. "
+            f"Spotter initialized for {len(self.instruments)} instruments. "
             f"Fair price is calculated with method: {self.fair_price_method.value}"
         )
 
@@ -56,20 +37,13 @@ class Spotter(TradingAgent):
         else:
             return quote.mid
 
-    async def start(self, data: Any):
+    async def run(self, data):
         """Processes incoming quote data to calculate and cache the spot price."""
         instrument = getattr(data, 'symbol', None)
         if not instrument or instrument not in self.instruments:
             return
 
-        now = datetime.datetime.utcnow()
-        lock = self._locks[instrument]
-
-        async with lock:
-            last_update = self._last_update_time.get(instrument)
-            if last_update and (now - last_update).total_seconds() < self.update_freq:
-                return  # Skip update due to throttling
-            self._last_update_time[instrument] = now
+        now = datetime.utcnow()
 
         try:
             quote = Quote.init_from_data(data)
@@ -95,3 +69,4 @@ class Spotter(TradingAgent):
 
         except Exception as e:
             logger.exception(f"[{instrument}] Error processing quote in Spotter: {e}")
+

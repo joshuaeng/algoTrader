@@ -1,5 +1,5 @@
 import asyncio
-import datetime
+from datetime import datetime
 from typing import Dict, Any, List, Optional
 
 from alpaca.trading.models import Position
@@ -10,33 +10,34 @@ from src.core.trading_agent import TradingAgent
 
 
 class DeltaHedger(TradingAgent):
-    """A TradingAgent that monitors portfolio delta and hedges it.
+    """A periodic agent that monitors and hedges portfolio delta.
 
-    This agent periodically checks all open positions, calculates the deviation
-    from a target delta, and places limit orders to hedge the difference.
+    This agent runs on a fixed schedule (e.g., every 30 seconds), checks
+    all open positions, and places orders to hedge any deviation from a
+    target delta.
     """
 
-    def __init__(self, config: Dict[str, Any], data_cache: DataCache):
+    def __init__(self, config: Dict[str, Any], data_cache: DataCache, **kwargs):
         """Initializes the DeltaHedger agent.
 
         The configuration dictionary should contain:
-        - 'poll_interval': (Optional) How often to run the hedging logic, in seconds. Defaults to 5.0.
-        - 'instrument_delta_limit': (Optional) The target delta (in quote currency) for each instrument.
-          Defaults to 0.
+        - 'throttle': How often to run the hedging logic (e.g., "30s", "1m").
+        - 'instrument_delta_limit': (Optional) The target delta in quote currency. Defaults to 0.
         """
-        super().__init__(config, data_cache)
-        self.poll_interval: float = self.config.get('poll_interval', 30.0)
+        # This agent is periodic by nature.
+        super().__init__(config, data_cache, agent_type='periodic', **kwargs)
         self.instrument_delta_limit: float = self.config.get('instrument_delta_limit', 0.0)
         self.positions: Optional[List[Position]] = None
-        self._last_run_time: Optional[datetime.datetime] = None
 
-        logger.info(f"DeltaHedger agent initialized. Poll interval: {self.poll_interval}s")
+        logger.info(f"DeltaHedger periodic agent initialized. Running every {self.throttle}.")
 
     def _update_positions(self):
         """Fetches the latest positions from the trading client."""
         if not self.trading_client:
             return
         try:
+            # Note: This is a blocking call. The framework runs this agent in a
+            # separate thread, so it won't block the main event loop.
             self.positions = self.trading_client.get_all_positions()
         except Exception as e:
             logger.exception(f"DeltaHedger failed to get positions: {e}")
@@ -47,13 +48,8 @@ class DeltaHedger(TradingAgent):
         spot_data = self.data_cache.get(f"_sys/SPOTTER/{instrument}/SPOT")
         return spot_data.fair_price if spot_data else None
 
-    async def start(self, data: Any):
-        """Main handler, throttled to run the hedging logic periodically."""
-        now = datetime.datetime.utcnow()
-        if self._last_run_time and (now - self._last_run_time).total_seconds() < self.poll_interval:
-            return  # Throttled
-        self._last_run_time = now
-
+    async def run(self, data: Optional[Any] = None):
+        """Main hedging logic, executed periodically by the TradingHub."""
         logger.debug("DeltaHedger running hedging logic...")
         self._update_positions()
 
@@ -66,6 +62,9 @@ class DeltaHedger(TradingAgent):
                 current_price = float(position.current_price)
                 difference = market_value - self.instrument_delta_limit
 
+                if abs(difference) < 0.01:  # Skip if already balanced
+                    continue
+
                 qty = int(difference // current_price)
                 side = "sell" if qty > 0 else "buy"
                 qty = min(abs(qty), abs(int(position.qty_available)))
@@ -73,9 +72,7 @@ class DeltaHedger(TradingAgent):
                 if qty == 0:
                     continue
 
-                # Use cached fair price if available, otherwise use last trade price
                 price = self.get_fair_price(instrument=position.symbol) or current_price
-
                 await self._submit_rebalance_order(position.symbol, price, qty, side)
 
             except Exception as e:
@@ -87,6 +84,7 @@ class DeltaHedger(TradingAgent):
             logger.error("DeltaHedger cannot submit order: trading client not available.")
             return
         try:
+            # The trading client's submit method should be async or run in a thread
             await asyncio.to_thread(
                 self.trading_client.submit_limit_order,
                 ticker=ticker,
