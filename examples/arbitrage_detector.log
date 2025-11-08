@@ -1,0 +1,58 @@
+2025-11-07 22:28:07.957 | INFO     | __main__:main:56 - Setting up the Price Arbitrage Detector.
+2025-11-07 22:28:07.960 | INFO     | src.core.trading_agent:set_throttle:57 - [Spotter] Throttle/period set to 0:00:00.500000.
+2025-11-07 22:28:07.960 | INFO     | src.agents.spotter:__init__:21 - Spotter initialized for 1 instruments. Fair price is calculated with method: CROSSED_VWAP
+2025-11-07 22:28:07.960 | INFO     | src.core.trading_hub:add_agent:36 - Added event-driven agent: Spotter
+2025-11-07 22:28:07.961 | INFO     | src.core.trading_agent:set_throttle:57 - [Spotter] Throttle/period set to 0:00:00.500000.
+2025-11-07 22:28:07.961 | INFO     | src.agents.spotter:__init__:21 - Spotter initialized for 1 instruments. Fair price is calculated with method: CROSSED_VWAP
+2025-11-07 22:28:07.961 | INFO     | src.core.trading_hub:add_agent:36 - Added event-driven agent: Spotter
+2025-11-07 22:28:07.961 | INFO     | src.core.trading_agent:set_throttle:57 - [ArbitrageDetector] Throttle/period set to 0:00:02.
+2025-11-07 22:28:07.962 | INFO     | __main__:__init__:28 - ArbitrageDetector watching ['GOOG', 'GOOGL'] for a spread > $0.75.
+2025-11-07 22:28:07.962 | INFO     | src.core.trading_hub:add_agent:31 - Added periodic agent: ArbitrageDetector
+2025-11-07 22:28:07.962 | INFO     | __main__:main:81 - Starting TradingHub. The detector will now watch for arbitrage opportunities.
+2025-11-07 22:28:07.962 | INFO     | src.core.trading_hub:start:83 - Subscribing to quotes for: ['GOOGL', 'GOOG']
+2025-11-07 22:28:07.963 | SUCCESS  | src.core.trading_hub:start:92 - TradingHub started successfully with 2 active tasks.
+2025-11-07 22:28:07.963 | INFO     | src.core.trading_hub:_periodic_agent_loop:46 - Starting loop for periodic agent 'ArbitrageDetector' with period 0:00:02.
+2025-11-07 22:30:15.563 | INFO     | __main__:main:56 - Setting up the Price Arbitrage Detector.
+2025-11-07 22:30:15.567 | INFO     | src.core.trading_agent:set_throttle:57 - [Spotter] Throttle/period set to 0:00:00.500000.
+2025-11-07 22:30:15.567 | INFO     | src.agents.spotter:__init__:21 - Spotter initialized for 1 instruments. Fair price is calculated with method: CROSSED_VWAP
+2025-11-07 22:30:15.567 | INFO     | src.core.trading_hub:add_agent:36 - Added event-driven agent: Spotter
+2025-11-07 22:30:15.567 | INFO     | src.core.trading_agent:set_throttle:57 - [Spotter] Throttle/period set to 0:00:00.500000.
+2025-11-07 22:30:15.567 | INFO     | src.agents.spotter:__init__:21 - Spotter initialized for 1 instruments. Fair price is calculated with method: CROSSED_VWAP
+2025-11-07 22:30:15.568 | INFO     | src.core.trading_hub:add_agent:36 - Added event-driven agent: Spotter
+2025-11-07 22:30:15.568 | INFO     | src.core.trading_agent:set_throttle:57 - [ArbitrageDetector] Throttle/period set to 0:00:02.
+2025-11-07 22:30:15.568 | INFO     | __main__:__init__:28 - ArbitrageDetector watching ['GOOG', 'GOOGL'] for a spread > $0.75.
+2025-11-07 22:30:15.568 | INFO     | src.core.trading_hub:add_agent:31 - Added periodic agent: ArbitrageDetector
+2025-11-07 22:30:15.568 | INFO     | __main__:main:81 - Starting TradingHub. The detector will now watch for arbitrage opportunities.
+2025-11-07 22:30:15.568 | INFO     | src.core.trading_hub:start:87 - Subscribing to quotes for: ['GOOG', 'GOOGL']
+2025-11-07 22:30:15.568 | SUCCESS  | src.core.trading_hub:start:95 - TradingHub started successfully with 2 active tasks.
+2025-11-07 22:30:15.569 | INFO     | src.core.trading_hub:_periodic_agent_loop:46 - Starting loop for periodic agent 'ArbitrageDetector' with period 0:00:02.
+2025-11-07 22:32:19.636 | INFO     | __main__:main:56 - Setting up the Price Arbitrage Detector.
+2025-11-07 22:32:19.640 | INFO     | src.core.trading_agent:set_throttle:57 - [Spotter] Throttle/period set to 0:00:00.500000.
+2025-11-07 22:32:19.641 | INFO     | src.agents.spotter:__init__:21 - Spotter initialized for 1 instruments. Fair price is calculated with method: CROSSED_VWAP
+2025-11-07 22:32:19.641 | INFO     | src.core.trading_hub:add_agent:38 - Added event-driven agent: Spotter
+2025-11-07 22:32:19.641 | INFO     | src.core.trading_agent:set_throttle:57 - [Spotter] Throttle/period set to 0:00:00.500000.
+2025-11-07 22:32:19.641 | INFO     | src.agents.spotter:__init__:21 - Spotter initialized for 1 instruments. Fair price is calculated with method: CROSSED_VWAP
+2025-11-07 22:32:19.641 | INFO     | src.core.trading_hub:add_agent:38 - Added event-driven agent: Spotter
+2025-11-07 22:32:19.641 | INFO     | src.core.trading_agent:set_throttle:57 - [ArbitrageDetector] Throttle/period set to 0:00:02.
+2025-11-07 22:32:19.642 | INFO     | __main__:__init__:28 - ArbitrageDetector watching ['GOOG', 'GOOGL'] for a spread > $0.75.
+2025-11-07 22:32:19.642 | INFO     | src.core.trading_hub:add_agent:33 - Added periodic agent: ArbitrageDetector
+2025-11-07 22:32:19.642 | INFO     | __main__:main:81 - Starting TradingHub. The detector will now watch for arbitrage opportunities.
+2025-11-07 22:32:19.642 | INFO     | src.core.trading_hub:start:104 - Subscribing to quotes for: ['GOOG', 'GOOGL']
+2025-11-07 22:32:19.642 | SUCCESS  | src.core.trading_hub:start:113 - TradingHub started successfully with 3 active tasks.
+2025-11-07 22:32:19.642 | INFO     | src.core.trading_hub:_periodic_agent_loop:49 - Starting loop for periodic agent 'ArbitrageDetector' with period 0:00:02.
+2025-11-07 22:32:19.643 | INFO     | src.core.trading_hub:_watchdog_loop:70 - Connection watchdog started.
+2025-11-07 23:40:26.371 | INFO     | __main__:main:56 - Setting up the Price Arbitrage Detector.
+2025-11-07 23:40:26.381 | INFO     | src.core.trading_agent:set_throttle:57 - [Spotter] Throttle/period set to 0:00:00.500000.
+2025-11-07 23:40:26.382 | INFO     | src.agents.spotter:__init__:21 - Spotter initialized for 1 instruments. Fair price is calculated with method: CROSSED_VWAP
+2025-11-07 23:40:26.382 | INFO     | src.core.trading_hub:add_agent:38 - Added event-driven agent: Spotter
+2025-11-07 23:40:26.382 | INFO     | src.core.trading_agent:set_throttle:57 - [Spotter] Throttle/period set to 0:00:00.500000.
+2025-11-07 23:40:26.382 | INFO     | src.agents.spotter:__init__:21 - Spotter initialized for 1 instruments. Fair price is calculated with method: CROSSED_VWAP
+2025-11-07 23:40:26.382 | INFO     | src.core.trading_hub:add_agent:38 - Added event-driven agent: Spotter
+2025-11-07 23:40:26.382 | INFO     | src.core.trading_agent:set_throttle:57 - [ArbitrageDetector] Throttle/period set to 0:00:02.
+2025-11-07 23:40:26.382 | INFO     | __main__:__init__:28 - ArbitrageDetector watching ['GOOG', 'GOOGL'] for a spread > $0.75.
+2025-11-07 23:40:26.382 | INFO     | src.core.trading_hub:add_agent:33 - Added periodic agent: ArbitrageDetector
+2025-11-07 23:40:26.382 | INFO     | __main__:main:81 - Starting TradingHub. The detector will now watch for arbitrage opportunities.
+2025-11-07 23:40:26.383 | INFO     | src.core.trading_hub:start:104 - Subscribing to quotes for: ['GOOGL', 'GOOG']
+2025-11-07 23:40:26.383 | SUCCESS  | src.core.trading_hub:start:113 - TradingHub started successfully with 3 active tasks.
+2025-11-07 23:40:26.383 | INFO     | src.core.trading_hub:_periodic_agent_loop:49 - Starting loop for periodic agent 'ArbitrageDetector' with period 0:00:02.
+2025-11-07 23:40:26.383 | INFO     | src.core.trading_hub:_watchdog_loop:70 - Connection watchdog started.
