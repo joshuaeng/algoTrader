@@ -15,11 +15,16 @@ def _parse_time_string(time_str: str) -> timedelta:
     if not match:
         raise ValueError(f"Invalid time string format: '{time_str}'")
     value, unit = int(match.group(1)), match.group(2).lower()
-    if unit.startswith("ms"): return timedelta(milliseconds=value)
-    if unit.startswith("s"): return timedelta(seconds=value)
-    if unit.startswith("m"): return timedelta(minutes=value)
-    if unit.startswith("h"): return timedelta(hours=value)
-    if unit.startswith("d"): return timedelta(days=value)
+    if unit.startswith("ms"):
+        return timedelta(milliseconds=value)
+    if unit.startswith("s"):
+        return timedelta(seconds=value)
+    if unit.startswith("m"):
+        return timedelta(minutes=value)
+    if unit.startswith("h"):
+        return timedelta(hours=value)
+    if unit.startswith("d"):
+        return timedelta(days=value)
 
 
 class TradingAgent(ABC):
@@ -41,10 +46,10 @@ class TradingAgent(ABC):
 
         if agent_type not in ['event_driven', 'periodic']:
             raise ValueError("agent_type must be either 'event_driven' or 'periodic'")
+
         self.agent_type = agent_type
         self.throttle: timedelta = timedelta(seconds=1)
         self.set_throttle(self.config.get('throttle', throttle))
-
         self.validate_config()
 
     def set_trading_client(self, trading_client: AlpacaTrading):
@@ -52,24 +57,24 @@ class TradingAgent(ABC):
 
     def set_throttle(self, time_str: str):
         """Sets the throttle for an event-driven agent or the period for a periodic agent."""
-        try:
-            self.throttle = _parse_time_string(time_str)
-            logger.info(f"[{self.__class__.__name__}] Throttle/period set to {self.throttle}.")
-        except ValueError as e:
-            logger.error(f"[{self.__class__.__name__}] {e}")
+        self.throttle = _parse_time_string(time_str)
+        logger.info(f"[{self.__class__.__name__}] Throttle was set to {self.throttle}.")
 
     async def start(self, data: Any):
         """Entry point for event-driven execution. Enforces throttling."""
         if self.agent_type == 'periodic':
             return
+
         now = datetime.utcnow()
+
         if self._last_execution_time and (now - self._last_execution_time) < self.throttle:
             return
+
         await self.run(data)
         self._last_execution_time = now
 
     @abstractmethod
-    async def run(self, data: Optional[Any] = None):
+    async def run(self, data):
         """The core logic of the agent."""
         pass
 

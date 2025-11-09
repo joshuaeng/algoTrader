@@ -34,7 +34,7 @@ class TradingHub:
                 self._subscribed_quotes.update(agent.instruments)
             logger.info(f"Added event-driven agent: {agent.__class__.__name__}")
 
-    async def _data_handler(self, data):
+    async def _aggregate_agent_listeners(self, data):
         """Dispatches market data to all event-driven agents."""
         for agent in self.event_agents:
             asyncio.create_task(agent.start(data))
@@ -60,10 +60,10 @@ class TradingHub:
             return
 
         while True:
-            tasks = []
+            periodic_tasks = []
             # Start periodic agent loops
             for agent in self.periodic_agents:
-                tasks.append(asyncio.create_task(self._periodic_agent_loop(agent)))
+                periodic_tasks.append(asyncio.create_task(self._periodic_agent_loop(agent)))
 
             # Start market data stream for event-driven agents
             if self.event_agents:
@@ -71,12 +71,16 @@ class TradingHub:
                     logger.warning("No instruments to subscribe to for event-driven agents.")
                 else:
                     logger.info(f"Subscribing to quotes for: {list(self._subscribed_quotes)}")
-                    self.alpaca_market_data.subscribe_stock_quotes(self._data_handler, *list(self._subscribed_quotes))
-                    tasks.append(asyncio.create_task(self.alpaca_market_data.start_streams()))
+                    self.alpaca_market_data.subscribe_stock_quotes(
+                        self._aggregate_agent_listeners, 
+                        *list(self._subscribed_quotes)
+                    )
+                    
+                    self.alpaca_market_data.start_stream()
 
-            if not tasks:
-                logger.warning("Hub started but no active tasks to run.")
+            if not periodic_tasks:
+                logger.warning("Hub started but no active periodic tasks to run.")
                 return
 
-            logger.success("TradingHub started successfully with {} active tasks.", len(tasks))
-            await asyncio.gather(*tasks)
+            logger.success("TradingHub started successfully.")
+            await asyncio.gather(*periodic_tasks)

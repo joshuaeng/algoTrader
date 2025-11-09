@@ -17,7 +17,7 @@ class DeltaHedger(TradingAgent):
     target delta.
     """
 
-    def __init__(self, config: Dict[str, Any], data_cache: DataCache, **kwargs):
+    def __init__(self, config: Dict[str, Any], data_cache: DataCache):
         """Initializes the DeltaHedger agent.
 
         The configuration dictionary should contain:
@@ -25,7 +25,7 @@ class DeltaHedger(TradingAgent):
         - 'instrument_delta_limit': (Optional) The target delta in quote currency. Defaults to 0.
         """
         # This agent is periodic by nature.
-        super().__init__(config, data_cache, agent_type='periodic', **kwargs)
+        super().__init__(config, data_cache, agent_type='periodic')
         self.instrument_delta_limit: float = self.config.get('instrument_delta_limit', 0.0)
         self.positions: Optional[List[Position]] = None
 
@@ -36,8 +36,6 @@ class DeltaHedger(TradingAgent):
         if not self.trading_client:
             return
         try:
-            # Note: This is a blocking call. The framework runs this agent in a
-            # separate thread, so it won't block the main event loop.
             self.positions = self.trading_client.get_all_positions()
         except Exception as e:
             logger.exception(f"DeltaHedger failed to get positions: {e}")

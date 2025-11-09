@@ -220,48 +220,8 @@ class AlpacaMarketData(AlpacaConnector):
         self.stock_subscriptions.extend(tickers)
         self.stock_stream_client.subscribe_bars(handler, *tickers)
 
-    def subscribe_crypto_trades(self, handler, *symbols):
-        """
-        Subscribe to real-time crypto trades.
-
-        Args:
-            handler (function): The callback function to handle the trade data.
-            *symbols (str): The crypto symbols to subscribe to.
-        """
-        self.crypto_subscriptions.extend(symbols)
-        self.crypto_stream.subscribe_trades(handler, *symbols)
-        
-    def subscribe_crypto_quotes(self, handler, *symbols):
-        """
-        Subscribe to real-time crypto quotes.
-
-        Args:
-            handler (function): The callback function to handle the quote data.
-            *symbols (str): The crypto symbols to subscribe to.
-        """
-        self.crypto_subscriptions.extend(symbols)
-        self.crypto_stream.subscribe_quotes(handler, *symbols)
-
-    def subscribe_crypto_bars(self, handler, *symbols):
-        """
-        Subscribe to real-time crypto bars.
-
-        Args:
-            handler (function): The callback function to handle the bar data.
-            *symbols (str): The crypto symbols to subscribe to.
-        """
-        self.crypto_subscriptions.extend(symbols)
-        self.crypto_stream.subscribe_bars(handler, *symbols)
-
-    async def start_streams(self):
+    def start_stream(self):
         """
         Starts the real-time data streams.
         """
-        streams = []
-        if self.stock_subscriptions:
-            streams.append(self.stock_stream_client._run_forever())
-        if self.crypto_subscriptions:
-            streams.append(self.crypto_stream._run_forever())
-        
-        if streams:
-            await asyncio.gather(*streams)
+        self.stock_stream_client.run()
