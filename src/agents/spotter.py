@@ -59,7 +59,7 @@ class Spotter(TradingAgent):
                 raw_order_book=[quote],
             )
 
-            self.data_cache.set(f"_sys/SPOTTER/{instrument}/SPOT", value=spot_price)
+            self.communication_bus.publish(f"SPOT_PRICE('{instrument}')", value=spot_price)
 
             logger.debug(
                 f"[{instrument}] Processed quote at {now.isoformat()} | "

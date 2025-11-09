@@ -4,6 +4,7 @@ from typing import List, Set
 
 from loguru import logger
 
+from src.core.communication_bus import CommunicationBus
 from src.core.data_cache import DataCache
 from src.core.trading_agent import TradingAgent
 from src.alpaca_wrapper.market_data import AlpacaMarketData
@@ -21,10 +22,13 @@ class TradingHub:
         self.event_agents: List[TradingAgent] = []
         self.periodic_agents: List[TradingAgent] = []
         self._subscribed_quotes: Set[str] = set()
+        self.communication_bus = CommunicationBus()
 
     def add_agent(self, agent: TradingAgent):
         """Adds a trading agent to the hub, sorting it as event-driven or periodic."""
         agent.set_trading_client(self.alpaca_trading)
+        agent.set_communication_bus(self.communication_bus)
+
         if agent.agent_type == 'periodic':
             self.periodic_agents.append(agent)
             logger.info(f"Added periodic agent: {agent.__class__.__name__}")

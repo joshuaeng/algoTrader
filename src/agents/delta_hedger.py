@@ -6,6 +6,7 @@ from loguru import logger
 
 from src.core.data_cache import DataCache
 from src.core.trading_agent import TradingAgent
+from src.data.data_types import SpotPrice
 
 
 class DeltaHedger(TradingAgent):
@@ -27,8 +28,22 @@ class DeltaHedger(TradingAgent):
         super().__init__(config, data_cache, agent_type='periodic')
         self.instrument_delta_limit: float = self.config.get('instrument_delta_limit', 0.0)
         self.positions: Optional[List[Position]] = None
+        self.last_spot = Optional[dict[str, SpotPrice]] = None
+        self.instrument_scope: Optional[list] = None
+
+        self._update_positions()
+        logger.info("Initial position update done.")
 
         logger.info(f"DeltaHedger periodic agent initialized. Running every {self.throttle}.")
+
+    def snap_spot(self, spot_price: SpotPrice):
+        self.last_spot.update({spot_price.instrument: spot_price})
+
+    def update_instrument_scope(self):
+        self.instrument_scope = [pos.symbol for pos in self.positions]
+
+        for instrument in self.instrument_scope:
+            self.communication_bus.subscribe_listener(f"SPOT_PRICE('{instrument}')", self.snap_spot)
 
     def _update_positions(self):
         """Fetches the latest positions from the trading client."""
@@ -36,14 +51,15 @@ class DeltaHedger(TradingAgent):
             return
         try:
             self.positions = self.trading_client.get_all_positions()
+            self.update_instrument_scope()
         except Exception as e:
             logger.exception(f"DeltaHedger failed to get positions: {e}")
             self.positions = []
 
-    def get_fair_price(self, instrument: str) -> Optional[float]:
+    def get_spot_price(self, instrument: str) -> Optional[float]:
         """Retrieves the latest spot price for an instrument from the cache."""
-        spot_data = self.data_cache.get(f"_sys/SPOTTER/{instrument}/SPOT")
-        return spot_data.fair_price if spot_data else None
+        spot_price = self.last_spot.get(instrument, None)
+        return spot_price.fair_price if spot_price else None
 
     async def run(self, data=None):
         """Main hedging logic, executed periodically by the TradingHub."""
@@ -69,7 +85,7 @@ class DeltaHedger(TradingAgent):
                 if qty == 0:
                     continue
 
-                price = self.get_fair_price(instrument=position.symbol) or current_price
+                price = self.get_spot_price(instrument=position.symbol) or current_price
                 await self._submit_rebalance_order(position.symbol, price, qty, side)
 
             except Exception as e:

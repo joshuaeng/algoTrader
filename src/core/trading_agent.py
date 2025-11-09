@@ -5,6 +5,7 @@ from typing import Dict, Any, Optional
 
 from loguru import logger
 
+from src.core.communication_bus import CommunicationBus
 from src.core.data_cache import DataCache
 from src.alpaca_wrapper.trading import AlpacaTrading
 
@@ -42,6 +43,7 @@ class TradingAgent(ABC):
         self.config = config
         self.data_cache = data_cache
         self.trading_client: Optional[AlpacaTrading] = None
+        self.communication_bus = Optional[CommunicationBus] = None
         self._last_execution_time: Optional[datetime] = None
 
         if agent_type not in ['event_driven', 'periodic']:
@@ -51,6 +53,9 @@ class TradingAgent(ABC):
         self.throttle: timedelta = timedelta(seconds=1)
         self.set_throttle(self.config.get('throttle', throttle))
         self.validate_config()
+
+    def set_communication_bus(self, bus: CommunicationBus):
+        self.communication_bus = bus
 
     def set_trading_client(self, trading_client: AlpacaTrading):
         self.trading_client = trading_client

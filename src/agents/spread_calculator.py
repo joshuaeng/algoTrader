@@ -78,7 +78,7 @@ class SpreadCalculator(TradingAgent):
                 )
 
                 # Publish the calculated average spread to the cache
-                self.data_cache.set(f"_sys/SPREAD/{instrument}/value", value=spread)
+                self.communication_bus.publish(f"SPREAD('{instrument}')", value=spread)
 
                 logger.debug(
                     f"[{instrument}] Processed quote at {now.isoformat()} | "
