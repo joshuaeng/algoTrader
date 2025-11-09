@@ -74,7 +74,7 @@ class TradingAgent(ABC):
         self._last_execution_time = now
 
     @abstractmethod
-    async def run(self, data):
+    async def run(self, data=None):
         """The core logic of the agent."""
         pass
 

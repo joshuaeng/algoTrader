@@ -1,4 +1,3 @@
-import asyncio
 from datetime import datetime
 from typing import Dict, Any, List
 
@@ -37,7 +36,7 @@ class Spotter(TradingAgent):
         else:
             return quote.mid
 
-    async def run(self, data):
+    async def run(self, data=None):
         """Processes incoming quote data to calculate and cache the spot price."""
         instrument = getattr(data, 'symbol', None)
         if not instrument or instrument not in self.instruments:

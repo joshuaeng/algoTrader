@@ -1,5 +1,4 @@
 import asyncio
-from datetime import datetime
 from typing import Dict, Any, List, Optional
 
 from alpaca.trading.models import Position
@@ -46,7 +45,7 @@ class DeltaHedger(TradingAgent):
         spot_data = self.data_cache.get(f"_sys/SPOTTER/{instrument}/SPOT")
         return spot_data.fair_price if spot_data else None
 
-    async def run(self, data: Optional[Any] = None):
+    async def run(self, data=None):
         """Main hedging logic, executed periodically by the TradingHub."""
         logger.debug("DeltaHedger running hedging logic...")
         self._update_positions()
