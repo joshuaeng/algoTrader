@@ -29,7 +29,7 @@ def _parse_time_string(time_str: str) -> timedelta:
 
 
 class TradingAgent(ABC):
-    """Abstract base class for trading agents."""
+    """Abstract base class for trading built_in_agents."""
 
     def __init__(self, config: Dict[str, Any], data_cache: DataCache, agent_type: str = 'event_driven', throttle: str = "1s"):
         """Initializes the TradingAgent.

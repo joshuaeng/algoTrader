@@ -39,7 +39,7 @@ class TradingHub:
             logger.info(f"Added event-driven agent: {agent.__class__.__name__}")
 
     async def _aggregate_agent_listeners(self, data):
-        """Dispatches market data to all event-driven agents."""
+        """Dispatches market data to all event-driven built_in_agents."""
         for agent in self.event_agents:
             asyncio.create_task(agent.start(data))
 
@@ -60,7 +60,7 @@ class TradingHub:
         If a connection limit error occurs, it will wait and retry.
         """
         if not self.event_agents and not self.periodic_agents:
-            logger.warning("No agents added. The trading hub will do nothing.")
+            logger.warning("No built_in_agents added. The trading hub will do nothing.")
             return
 
         while True:
@@ -69,10 +69,10 @@ class TradingHub:
             for agent in self.periodic_agents:
                 periodic_tasks.append(asyncio.create_task(self._periodic_agent_loop(agent)))
 
-            # Start market data stream for event-driven agents
+            # Start market data stream for event-driven built_in_agents
             if self.event_agents:
                 if not self._subscribed_quotes:
-                    logger.warning("No instruments to subscribe to for event-driven agents.")
+                    logger.warning("No instruments to subscribe to for event-driven built_in_agents.")
                 else:
                     logger.info(f"Subscribing to quotes for: {list(self._subscribed_quotes)}")
                     self.alpaca_market_data.subscribe_stock_quotes(

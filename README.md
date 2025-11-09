@@ -108,11 +108,11 @@ trading_hub = TradingHub(cache=shared_cache)
 For each agent, define its configuration and instantiate it, telling the hub whether it is `'event_driven'` or `'periodic'`.
 
 ```python
-# Define configurations for your agents
+# Define configurations for your built_in_agents
 spotter_config = {'instruments': ["AAPL"], 'throttle': '500ms'}
 delta_hedger_config = {'throttle': '30s'}
 
-# Instantiate and add agents to the hub
+# Instantiate and add built_in_agents to the hub
 # Spotter is event-driven by default
 trading_hub.add_agent(Spotter(config=spotter_config, data_cache=shared_cache))
 

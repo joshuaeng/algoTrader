@@ -11,7 +11,6 @@ from alpaca.data.requests import (
 )
 from alpaca.data.timeframe import TimeFrame
 import pandas as pd
-import asyncio
 from alpaca.common.exceptions import APIError
 
 
