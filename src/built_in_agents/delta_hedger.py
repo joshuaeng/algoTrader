@@ -28,7 +28,7 @@ class DeltaHedger(TradingAgent):
         super().__init__(config, data_cache, agent_type='periodic')
         self.instrument_delta_limit: float = self.config.get('instrument_delta_limit', 0.0)
         self.positions: Optional[List[Position]] = None
-        self.last_spot = Optional[dict[str, SpotPrice]] = None
+        self.last_spot = None
         self.instrument_scope: Optional[list] = None
 
         self._update_positions()

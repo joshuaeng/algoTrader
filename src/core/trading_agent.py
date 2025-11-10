@@ -43,7 +43,7 @@ class TradingAgent(ABC):
         self.config = config
         self.data_cache = data_cache
         self.trading_client: Optional[AlpacaTrading] = None
-        self.communication_bus = Optional[CommunicationBus] = None
+        self.communication_bus = None
         self._last_execution_time: Optional[datetime] = None
 
         if agent_type not in ['event_driven', 'periodic']:

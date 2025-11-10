@@ -219,8 +219,9 @@ class AlpacaMarketData(AlpacaConnector):
         self.stock_subscriptions.extend(tickers)
         self.stock_stream_client.subscribe_bars(handler, *tickers)
 
-    def start_stream(self):
+    async def start_stream(self):
         """
         Starts the real-time data streams.
         """
-        self.stock_stream_client.run()
+        await self.stock_stream_client._run_forever()
+

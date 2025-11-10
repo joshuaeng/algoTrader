@@ -80,7 +80,7 @@ class TradingHub:
                         *list(self._subscribed_quotes)
                     )
                     
-                    self.alpaca_market_data.start_stream()
+                    await self.alpaca_market_data.start_stream()
 
             if not periodic_tasks:
                 logger.warning("Hub started but no active periodic tasks to run.")
