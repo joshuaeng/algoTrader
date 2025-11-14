@@ -82,8 +82,12 @@ async def main():
 
     # 3. Instantiate and add built_in_agents to the hub
     # Event-driven built_in_agents
-    await trading_hub.add_agent(Spotter(config=spotter_config, data_cache=shared_cache, communication_bus=trading_hub.communication_bus))
-    await trading_hub.add_agent(SpreadCalculator(config=spread_calc_config, data_cache=shared_cache, communication_bus=trading_hub.communication_bus))
+    await trading_hub.add_agent(
+        Spotter(config=spotter_config, data_cache=shared_cache, communication_bus=trading_hub.communication_bus)
+    )
+    await trading_hub.add_agent(
+        SpreadCalculator(config=spread_calc_config, data_cache=shared_cache, communication_bus=trading_hub.communication_bus)
+    )
 
     # Periodic built_in_agents
     await trading_hub.add_agent(DeltaHedger(config=delta_hedger_config, data_cache=shared_cache, communication_bus=trading_hub.communication_bus))
