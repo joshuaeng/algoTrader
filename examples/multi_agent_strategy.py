@@ -9,29 +9,60 @@ from src.core.trading_hub import TradingHub
 from src.core.data_cache import DataCache
 from src.built_in_agents.spotter import Spotter
 from src.built_in_agents.spread_calculator import SpreadCalculator
+from src.data.data_types import DataObject
 
 # --- Configuration ---
 INSTRUMENTS = ["AAPL", "MSFT"]
 
 
-class PortfolioMonitor(TradingAgent):
-    """A simple periodic agent that logs the state of the portfolio."""
+class Quoter(TradingAgent):
+    """
+    A simple periodic agent that calculates quotes.
+    """
+    def __init__(self, config: Dict[str, Any], data_cache: DataCache, communication_bus: CommunicationBus, **kwargs):
+        super().__init__(config, data_cache, communication_bus, agent_type='periodic', **kwargs)
+        self.last_spot: Dict[str, DataObject] = {}
+        self.last_spread: Dict[str, DataObject] = {}
 
-    def __init__(self, config: Dict[str, Any], data_cache: DataCache, **kwargs):
-        super().__init__(config, data_cache, agent_type='periodic', **kwargs)
-
-    async def run(self, data: Optional[Any] = None):
-        """Reads from the cache and logs the latest data."""
-        logger.info("--- Portfolio Monitor ---")
+    async def initialize(self):
         for instrument in INSTRUMENTS:
-            spot_data = self.data_cache.get(f"_sys/SPOTTER/{instrument}/SPOT")
-            spread_data = self.data_cache.get(f"_sys/SPREAD/{instrument}/value")
+            await self.communication_bus.subscribe_listener(
+                f"SPOT_PRICE('{instrument}')",
+                self.snap_spot_price
+            )
+            await self.communication_bus.subscribe_listener(
+                f"SPREAD('{instrument}')",
+                self.snap_spread
+            )
 
-            if spot_data:
-                logger.info(f"[{instrument}] Fair Price: {spot_data.fair_price:.4f}")
-            if spread_data:
-                logger.info(f"[{instrument}] Avg Spread: {spread_data.value:.4f}")
-        logger.info("------------------------")
+    async def snap_spot_price(self, topic: str, spot_price: DataObject):
+        instrument = topic.split("'")[1]
+        self.last_spot[instrument] = spot_price
+
+    async def snap_spread(self, topic: str, spread: DataObject):
+        instrument = topic.split("'")[1]
+        self.last_spread[instrument] = spread
+
+    async def run(self, data=None):
+        for instrument in INSTRUMENTS:
+            spot_price = self.last_spot.get(instrument)
+            spread = self.last_spread.get(instrument)
+
+            if spot_price and spread:
+                fair_value = spot_price.get('value')
+                spread_value = spread.get('value')
+
+                if fair_value and spread_value:
+                    bid_price = fair_value - (fair_value * spread_value / 2)
+                    ask_price = fair_value + (fair_value * spread_value / 2)
+
+                    quote_data = DataObject.create(
+                        'quote',
+                        bid=bid_price,
+                        ask=ask_price
+                    )
+                    await self.communication_bus.publish(f"QUOTE('{instrument}')", value=quote_data)
+                    logger.info(f"Published quote for {instrument}: Bid={bid_price:.2f}, Ask={ask_price:.2f}")
 
 
 async def main():
@@ -47,16 +78,16 @@ async def main():
     spotter_config = {'instruments': INSTRUMENTS, 'throttle': '500ms'}
     spread_calc_config = {'instruments': INSTRUMENTS, 'throttle': '2s'}
     delta_hedger_config = {'throttle': '30s'}
-    monitor_config = {'throttle': '10s'}
+    quoter_config = {'throttle': '5s'}
 
     # 3. Instantiate and add built_in_agents to the hub
     # Event-driven built_in_agents
-    trading_hub.add_agent(Spotter(config=spotter_config, data_cache=shared_cache))
-    trading_hub.add_agent(SpreadCalculator(config=spread_calc_config, data_cache=shared_cache))
+    await trading_hub.add_agent(Spotter(config=spotter_config, data_cache=shared_cache, communication_bus=trading_hub.communication_bus))
+    await trading_hub.add_agent(SpreadCalculator(config=spread_calc_config, data_cache=shared_cache, communication_bus=trading_hub.communication_bus))
 
     # Periodic built_in_agents
-    trading_hub.add_agent(DeltaHedger(config=delta_hedger_config, data_cache=shared_cache))
-    trading_hub.add_agent(PortfolioMonitor(config=monitor_config, data_cache=shared_cache))
+    await trading_hub.add_agent(DeltaHedger(config=delta_hedger_config, data_cache=shared_cache, communication_bus=trading_hub.communication_bus))
+    await trading_hub.add_agent(Quoter(config=quoter_config, data_cache=shared_cache, communication_bus=trading_hub.communication_bus))
 
     # 4. Start the hub. This will run until interrupted.
     await trading_hub.start()

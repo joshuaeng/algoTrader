@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional
 
 from loguru import logger
 
-from src.core.communication_bus import CommunicationBus
+from src.core.stateful_communication_bus import StatefulCommunicationBus as CommunicationBus
 from src.core.data_cache import DataCache
 from src.alpaca_wrapper.trading import AlpacaTrading
 
@@ -31,19 +31,20 @@ def _parse_time_string(time_str: str) -> timedelta:
 class TradingAgent(ABC):
     """Abstract base class for trading built_in_agents."""
 
-    def __init__(self, config: Dict[str, Any], data_cache: DataCache, agent_type: str = 'event_driven', throttle: str = "1s"):
+    def __init__(self, config: Dict[str, Any], data_cache: DataCache, communication_bus: CommunicationBus, agent_type: str = 'event_driven', throttle: str = "1s"):
         """Initializes the TradingAgent.
 
         Args:
             config: Configuration dictionary for the agent.
             data_cache: Shared DataCache instance.
+            communication_bus: The communication bus instance.
             agent_type: The type of agent, either 'event_driven' or 'periodic'.
             throttle: The default throttle or period (e.g., "1s", "500ms").
         """
         self.config = config
         self.data_cache = data_cache
         self.trading_client: Optional[AlpacaTrading] = None
-        self.communication_bus = None
+        self.communication_bus: Optional[CommunicationBus] = communication_bus
         self._last_execution_time: Optional[datetime] = None
 
         if agent_type not in ['event_driven', 'periodic']:
@@ -54,8 +55,9 @@ class TradingAgent(ABC):
         self.set_throttle(self.config.get('throttle', throttle))
         self.validate_config()
 
-    def set_communication_bus(self, bus: CommunicationBus):
-        self.communication_bus = bus
+    async def initialize(self):
+        """Hook for subclasses to perform async initialization."""
+        pass
 
     def set_trading_client(self, trading_client: AlpacaTrading):
         self.trading_client = trading_client

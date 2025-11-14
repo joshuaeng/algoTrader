@@ -6,7 +6,7 @@ from loguru import logger
 
 from src.core.data_cache import DataCache
 from src.core.trading_agent import TradingAgent
-from src.data.data_types import SpotPrice
+from src.data.data_types import DataObject
 
 
 class DeltaHedger(TradingAgent):
@@ -17,7 +17,7 @@ class DeltaHedger(TradingAgent):
     target delta.
     """
 
-    def __init__(self, config: Dict[str, Any], data_cache: DataCache):
+    def __init__(self, config: Dict[str, Any], data_cache: DataCache, communication_bus: CommunicationBus):
         """Initializes the DeltaHedger agent.
 
         The configuration dictionary should contain:
@@ -25,25 +25,28 @@ class DeltaHedger(TradingAgent):
         - 'instrument_delta_limit': (Optional) The target delta in quote currency. Defaults to 0.
         """
         # This agent is periodic by nature.
-        super().__init__(config, data_cache, agent_type='periodic')
+        super().__init__(config, data_cache, communication_bus, agent_type='periodic')
         self.instrument_delta_limit: float = self.config.get('instrument_delta_limit', 0.0)
         self.positions: Optional[List[Position]] = None
-        self.last_spot = None
+        self.last_spot: Dict[str, DataObject] = {}
         self.instrument_scope: Optional[list] = None
-
-        self._update_positions()
-        logger.info("Initial position update done.")
 
         logger.info(f"DeltaHedger periodic agent initialized. Running every {self.throttle}.")
 
-    def snap_spot(self, spot_price: SpotPrice):
-        self.last_spot.update({spot_price.instrument: spot_price})
+    def initialize(self):
+        """Initial position update."""
+        await self._update_positions()
+        logger.info("Initial position update done.")
 
-    def update_instrument_scope(self):
+    async def snap_spot(self, topic: str, spot_price: DataObject):
+        instrument = topic.split("'")[1]
+        self.last_spot[instrument] = spot_price
+
+    async def update_instrument_scope(self):
         self.instrument_scope = [pos.symbol for pos in self.positions]
 
         for instrument in self.instrument_scope:
-            self.communication_bus.subscribe_listener(f"SPOT_PRICE('{instrument}')", self.snap_spot)
+            await self.communication_bus.subscribe_listener(f"SPOT_PRICE('{instrument}')", self.snap_spot)
 
     def _update_positions(self):
         """Fetches the latest positions from the trading client."""
@@ -51,7 +54,7 @@ class DeltaHedger(TradingAgent):
             return
         try:
             self.positions = self.trading_client.get_all_positions()
-            self.update_instrument_scope()
+            await self.update_instrument_scope()
         except Exception as e:
             logger.exception(f"DeltaHedger failed to get positions: {e}")
             self.positions = []
@@ -59,12 +62,12 @@ class DeltaHedger(TradingAgent):
     def get_spot_price(self, instrument: str) -> Optional[float]:
         """Retrieves the latest spot price for an instrument from the cache."""
         spot_price = self.last_spot.get(instrument, None)
-        return spot_price.fair_price if spot_price else None
+        return spot_price.get('value') if spot_price else None
 
     async def run(self, data=None):
         """Main hedging logic, executed periodically by the TradingHub."""
         logger.debug("DeltaHedger running hedging logic...")
-        self._update_positions()
+        await self._update_positions()
 
         if self.positions is None:
             return

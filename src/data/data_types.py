@@ -1,93 +1,62 @@
-
-import dataclasses
+from __future__ import annotations
 import datetime
-from enum import Enum
-from typing import Optional, List
+from typing import Optional, Dict, Any, Type, TypeVar
+
+T = TypeVar('T', bound='DataObject')
 
 
-class Quote:
-    """A lightweight object representing a quote.
-
-    Attributes:
-        bid (float): Best bid price.
-        ask (float): Best ask price.
-        bid_size (float): Bid-side quantity.
-        ask_size (float): Ask-side quantity.
+class DataObject:
+    """
+    A generic, serializable data container for inter-agent communication,
+    designed to be flexible and easily extensible.
     """
 
-    def __init__(self):
-        self.bid: Optional[float] = None
-        self.ask: Optional[float] = None
-        self.bid_size: Optional[float] = None
-        self.ask_size: Optional[float] = None
-
-    @classmethod
-    def init_from_data(cls, data):
-        """Create a Quote instance from raw market data.
+    def __init__(self, data_type: str, timestamp: Optional[datetime.datetime] = None, data: Optional[Dict[str, Any]] = None):
+        """
+        Initializes a new DataObject.
 
         Args:
-            data: Market data object or dict with bid/ask fields.
+            data_type (str): A string identifier for the type of data (e.g., 'spot_price', 'volatility').
+            timestamp (Optional[datetime.datetime]): The timestamp when the data was created or captured. Defaults to now.
+            data (Optional[Dict[str, Any]]): A dictionary to hold the actual data payload.
+        """
+        self.timestamp = timestamp or datetime.datetime.now()
+        self.data_type = data_type
+        self.data = data or {}
+
+    @classmethod
+    def create(cls: Type[T], data_type: str, **kwargs) -> T:
+        """
+        Factory method to create a new DataObject with a specific type and data.
+
+        Args:
+            data_type (str): The type of the data object.
+            **kwargs: The data payload to be stored in the `data` field.
 
         Returns:
-            Quote: Initialized Quote instance.
+            DataObject: A new instance of DataObject.
         """
-        obj = cls()
-        obj.bid = getattr(data, "bid_price", None)
-        obj.ask = getattr(data, "ask_price", None)
-        obj.bid_size = getattr(data, "bid_size", None)
-        obj.ask_size = getattr(data, "ask_size", None)
-        return obj
+        return cls(
+            data_type=data_type,
+            data=kwargs
+        )
 
-    @property
-    def spread(self) -> Optional[float]:
-        """Bid-ask spread (ask - bid)."""
-        if self.bid is not None and self.ask is not None:
-            return self.ask - self.bid
-        return None
+    def get(self, key: str, default: Any = None) -> Any:
+        """
+        Convenience method to access data from the `data` dictionary.
 
-    @property
-    def vwap(self) -> Optional[float]:
-        """Volume-weighted average price (VWAP) across bid and ask sides."""
-        if None in (self.bid, self.ask, self.bid_size, self.ask_size):
-            return None
-        total_qty = self.bid_size + self.ask_size
-        return (self.bid * self.bid_size + self.ask * self.ask_size) / total_qty
+        Args:
+            key (str): The key to look for in the data payload.
+            default (Any): The default value to return if the key is not found.
 
-    @property
-    def crossed_vwap(self) -> Optional[float]:
-        """A 'crossed' VWAP — weights each side’s price by the opposite side’s quantity."""
-        if None in (self.bid, self.ask, self.bid_size, self.ask_size):
-            return None
-        total_qty = self.bid_size + self.ask_size
-        return (self.bid * self.ask_size + self.ask * self.bid_size) / total_qty
+        Returns:
+            Any: The value associated with the key, or the default value.
+        """
+        return self.data.get(key, default)
 
-    @property
-    def mid(self) -> Optional[float]:
-        """Midpoint between bid and ask."""
-        if self.bid is not None and self.ask is not None:
-            return (self.bid + self.ask) / 2
-        return None
-
-
-@dataclasses.dataclass
-class SpotPrice:
-    """Container for a computed spot price snapshot."""
-    instrument: str
-    timestamp: datetime.datetime = None
-    fair_price: float = None
-    raw_order_book: List[Quote] = None
-
-
-class FairPriceMethod(Enum):
-    """Enum for different methods of calculating fair price."""
-    VWAP = "VWAP"
-    CROSSED_VWAP = "CROSSED_VWAP"
-    MID = "MID"
-
-
-@dataclasses.dataclass
-class Spread:
-    """Container for a computed spread snapshot."""
-    instrument: str
-    timestamp: datetime.datetime = None
-    value: float = None
+    def __str__(self):
+        # Exclude the 'data' dictionary from the main string representation for clarity
+        main_info = f"DataObject(data_type='{self.data_type}', timestamp='{self.timestamp}')"
+        # Append the data dictionary in a readable format
+        data_info = f"\n  Data: {self.data}"
+        return main_info + data_info

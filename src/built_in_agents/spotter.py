@@ -1,25 +1,25 @@
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from loguru import logger
 
 from src.core.data_cache import DataCache
-from src.data.data_types import Quote, SpotPrice, FairPriceMethod
+from src.data.data_types import DataObject
 from src.core.trading_agent import TradingAgent
 
 
 class Spotter(TradingAgent):
     """A TradingAgent that calculates the spot price for instruments and caches it."""
 
-    def __init__(self, config: Dict[str, Any], data_cache: DataCache, **kwargs):
+    def __init__(self, config: Dict[str, Any], data_cache: DataCache, communication_bus: CommunicationBus, **kwargs):
         """Initializes the Spotter agent."""
-        super().__init__(config, data_cache, agent_type='event_driven', **kwargs)
+        super().__init__(config, data_cache, communication_bus, agent_type='event_driven', **kwargs)
         self.instruments: List[str] = self.config['instruments']
-        self.fair_price_method: FairPriceMethod = FairPriceMethod(self.config.get('fair_price_method', 'CROSSED_VWAP'))
+        self.fair_price_method: str = self.config.get('fair_price_method', 'crossed_vwap')
 
         logger.info(
             f"Spotter initialized for {len(self.instruments)} instruments. "
-            f"Fair price is calculated with method: {self.fair_price_method.value}"
+            f"Fair price is calculated with method: {self.fair_price_method}"
         )
 
     def validate_config(self):
@@ -27,14 +27,14 @@ class Spotter(TradingAgent):
         if 'instruments' not in self.config or not self.config['instruments']:
             raise ValueError("Spotter config requires a non-empty 'instruments' list.")
 
-    def calculate_fair_price(self, quote: Quote) -> float:
+    def _calculate_fair_price(self, bid_price, ask_price, bid_size, ask_size) -> Optional[float]:
         """Calculates the fair price based on the configured method."""
-        if self.fair_price_method == FairPriceMethod.CROSSED_VWAP:
-            return quote.crossed_vwap
-        elif self.fair_price_method == FairPriceMethod.VWAP:
-            return quote.vwap
-        else:
-            return quote.mid
+        if self.fair_price_method == 'crossed_vwap':
+            return (bid_price * ask_size + ask_price * bid_size) / (bid_size + ask_size)
+        elif self.fair_price_method == 'vwap':
+            return (bid_price * bid_size + ask_price * ask_size) / (bid_size + ask_size)
+        else: # mid
+            return (bid_price + ask_price) / 2
 
     async def run(self, data=None):
         """Processes incoming quote data to calculate and cache the spot price."""
@@ -45,21 +45,18 @@ class Spotter(TradingAgent):
         now = datetime.utcnow()
 
         try:
-            quote = Quote.init_from_data(data)
-            fair_price = self.calculate_fair_price(quote)
+            fair_price = self._calculate_fair_price(data.bid_price, data.ask_price, data.bid_size, data.ask_size)
 
             if fair_price is None:
                 logger.warning(f"[{instrument}] Could not calculate fair price from data.")
                 return
 
-            spot_price = SpotPrice(
-                instrument=instrument,
-                timestamp=now,
-                fair_price=fair_price,
-                raw_order_book=[quote],
+            spot_price_data = DataObject.create(
+                'spot_price',
+                value=fair_price
             )
 
-            self.communication_bus.publish(f"SPOT_PRICE('{instrument}')", value=spot_price)
+            await self.communication_bus.publish(f"SPOT_PRICE('{instrument}')", value=spot_price_data)
 
             logger.debug(
                 f"[{instrument}] Processed quote at {now.isoformat()} | "

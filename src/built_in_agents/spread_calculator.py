@@ -6,14 +6,14 @@ import numpy as np
 from loguru import logger
 
 from src.core.data_cache import DataCache
-from src.data.data_types import Quote, Spread
+from src.data.data_types import DataObject
 from src.core.trading_agent import TradingAgent
 
 
 class SpreadCalculator(TradingAgent):
     """A TradingAgent that calculates a rolling average of the bid-ask spread."""
 
-    def __init__(self, config: Dict[str, Any], data_cache: DataCache, **kwargs):
+    def __init__(self, config: Dict[str, Any], data_cache: DataCache, communication_bus: CommunicationBus, **kwargs):
         """Initializes the SpreadCalculator agent.
 
         The configuration dictionary should contain:
@@ -25,7 +25,7 @@ class SpreadCalculator(TradingAgent):
             config: The configuration dictionary for the agent.
             data_cache: The shared DataCache instance.
         """
-        super().__init__(config, data_cache, agent_type='event_driven', **kwargs)
+        super().__init__(config, data_cache, communication_bus, agent_type='event_driven', **kwargs)
         self.instruments: List[str] = self.config['instruments']
         self.window_size: int = self.config.get('window_size', 100)
         self.min_data_size: int = self.config.get('min_data_size', 20)
@@ -57,28 +57,33 @@ class SpreadCalculator(TradingAgent):
         now = datetime.datetime.utcnow()
 
         try:
-            quote = Quote.init_from_data(data)
-            spread_value = quote.spread
+            bid_price = getattr(data, "bid_price", None)
+            ask_price = getattr(data, "ask_price", None)
+
+            if not all([bid_price, ask_price]):
+                return
+
+            spread_value = ask_price - bid_price
+            mid_price = (ask_price + bid_price) / 2
 
             if spread_value is None or spread_value <= 0:
                 return  # Ignore invalid or zero spreads
 
             # Get the specific deque for this instrument and add the new value
             history = self.spread_history[instrument]
-            history.append(spread_value/quote.mid)
+            history.append(spread_value/mid_price)
 
             # Only calculate and cache if we have enough data
             if len(history) >= self.min_data_size:
                 average_spread = np.average(history)
 
-                spread = Spread(
-                    instrument=instrument,
-                    timestamp=now,
+                spread_data = DataObject.create(
+                    'spread',
                     value=average_spread
                 )
 
                 # Publish the calculated average spread to the cache
-                self.communication_bus.publish(f"SPREAD('{instrument}')", value=spread)
+                await self.communication_bus.publish(f"SPREAD('{instrument}')", value=spread_data)
 
                 logger.debug(
                     f"[{instrument}] Processed quote at {now.isoformat()} | "
