@@ -12,9 +12,9 @@ from src.core.trading_agent import TradingAgent
 class Spotter(TradingAgent):
     """A TradingAgent that calculates the spot price for instruments and caches it."""
 
-    def __init__(self, config: Dict[str, Any], data_cache: DataCache, communication_bus: CommunicationBus, **kwargs):
+    def __init__(self, config: Dict[str, Any], data_cache: DataCache, communication_bus: CommunicationBus):
         """Initializes the Spotter agent."""
-        super().__init__(config, data_cache, communication_bus, agent_type='event_driven', **kwargs)
+        super().__init__(config, data_cache, communication_bus, agent_type='event_driven')
         self.instruments: List[str] = self.config['instruments']
         self.fair_price_method: str = self.config.get('fair_price_method', 'crossed_vwap')
 

@@ -17,9 +17,9 @@ class CommunicationBus:
 
             if topic_name in self.last_value_repository:
                 if asyncio.iscoroutinefunction(listener):
-                    await listener(topic_name, self.last_value_repository[topic_name])
+                    await listener(self.last_value_repository[topic_name])
                 else:
-                    listener(topic_name, self.last_value_repository[topic_name])
+                    listener(self.last_value_repository[topic_name])
 
     async def publish(self, topic_name: str, value: Any):
         async with self._lock:
@@ -32,9 +32,9 @@ class CommunicationBus:
             async_calls = []
             for listener in listeners:
                 if asyncio.iscoroutinefunction(listener):
-                    async_calls.append(listener(topic_name, value))
+                    async_calls.append(listener(value))
                 else:
-                    listener(topic_name, value)
+                    listener(value)
 
         if async_calls:
             await asyncio.gather(*async_calls)

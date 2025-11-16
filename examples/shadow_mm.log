@@ -285,3 +285,37 @@
 2025-11-16 01:11:36.615 | INFO     | src.core.trading_hub:_periodic_agent_loop:49 - Starting loop for periodic agent 'DeltaHedger' with period 0:00:30.
 2025-11-16 01:11:36.615 | DEBUG    | src.built_in_agents.delta_hedger:run:70 - DeltaHedger running hedging logic...
 2025-11-16 01:11:36.724 | INFO     | src.core.trading_hub:_periodic_agent_loop:49 - Starting loop for periodic agent 'Quoter' with period 0:00:05.
+2025-11-16 01:16:46.418 | INFO     | __main__:main:72 - Setting up the TradingHub and its built_in_agents.
+2025-11-16 01:16:46.421 | INFO     | src.core.trading_agent:set_throttle:68 - [Spotter] Throttle was set to 0:00:00.500000.
+2025-11-16 01:16:46.421 | INFO     | src.built_in_agents.spotter:__init__:21 - Spotter initialized for 2 instruments. Fair price is calculated with method: crossed_vwap
+2025-11-16 01:16:46.421 | INFO     | src.core.trading_hub:add_agent:39 - Added event-driven agent: Spotter
+2025-11-16 01:16:46.421 | INFO     | src.core.trading_agent:set_throttle:68 - [SpreadCalculator] Throttle was set to 0:00:02.
+2025-11-16 01:16:46.422 | INFO     | src.built_in_agents.spread_calculator:__init__:39 - SpreadCalculator agent initialized for 2 instruments. Window size: 100, Min data: 20
+2025-11-16 01:16:46.422 | INFO     | src.core.trading_hub:add_agent:39 - Added event-driven agent: SpreadCalculator
+2025-11-16 01:16:46.422 | INFO     | src.core.trading_agent:set_throttle:68 - [DeltaHedger] Throttle was set to 0:00:30.
+2025-11-16 01:16:46.422 | INFO     | src.built_in_agents.delta_hedger:__init__:35 - DeltaHedger periodic agent initialized. Running every 0:00:30.
+2025-11-16 01:16:46.800 | INFO     | src.built_in_agents.delta_hedger:initialize:40 - Initial position update done.
+2025-11-16 01:16:46.801 | INFO     | src.core.trading_hub:add_agent:34 - Added periodic agent: DeltaHedger
+2025-11-16 01:16:46.801 | INFO     | src.core.trading_agent:set_throttle:68 - [Quoter] Throttle was set to 0:00:05.
+2025-11-16 01:16:46.801 | INFO     | src.core.trading_hub:add_agent:34 - Added periodic agent: Quoter
+2025-11-16 01:16:46.801 | INFO     | src.core.trading_hub:start:77 - Subscribing to quotes for: ['AAPL', 'MSFT']
+2025-11-16 01:16:46.805 | INFO     | src.core.trading_hub:_periodic_agent_loop:49 - Starting loop for periodic agent 'DeltaHedger' with period 0:00:30.
+2025-11-16 01:16:46.806 | DEBUG    | src.built_in_agents.delta_hedger:run:70 - DeltaHedger running hedging logic...
+2025-11-16 01:16:46.918 | INFO     | src.core.trading_hub:_periodic_agent_loop:49 - Starting loop for periodic agent 'Quoter' with period 0:00:05.
+2025-11-16 01:24:40.706 | INFO     | __main__:main:70 - Setting up the TradingHub and its built_in_agents.
+2025-11-16 01:24:40.712 | INFO     | src.core.trading_agent:set_throttle:68 - [Spotter] Throttle was set to 0:00:00.500000.
+2025-11-16 01:24:40.713 | INFO     | src.built_in_agents.spotter:__init__:21 - Spotter initialized for 2 instruments. Fair price is calculated with method: crossed_vwap
+2025-11-16 01:24:40.713 | INFO     | src.core.trading_hub:add_agent:39 - Added event-driven agent: Spotter
+2025-11-16 01:24:40.713 | INFO     | src.core.trading_agent:set_throttle:68 - [SpreadCalculator] Throttle was set to 0:00:02.
+2025-11-16 01:24:40.713 | INFO     | src.built_in_agents.spread_calculator:__init__:39 - SpreadCalculator agent initialized for 2 instruments. Window size: 100, Min data: 20
+2025-11-16 01:24:40.713 | INFO     | src.core.trading_hub:add_agent:39 - Added event-driven agent: SpreadCalculator
+2025-11-16 01:24:40.714 | INFO     | src.core.trading_agent:set_throttle:68 - [DeltaHedger] Throttle was set to 0:00:30.
+2025-11-16 01:24:40.714 | INFO     | src.built_in_agents.delta_hedger:__init__:35 - DeltaHedger periodic agent initialized. Running every 0:00:30.
+2025-11-16 01:24:41.096 | INFO     | src.built_in_agents.delta_hedger:initialize:40 - Initial position update done.
+2025-11-16 01:24:41.096 | INFO     | src.core.trading_hub:add_agent:34 - Added periodic agent: DeltaHedger
+2025-11-16 01:24:41.096 | INFO     | src.core.trading_agent:set_throttle:68 - [Quoter] Throttle was set to 0:00:05.
+2025-11-16 01:24:41.096 | INFO     | src.core.trading_hub:add_agent:34 - Added periodic agent: Quoter
+2025-11-16 01:24:41.097 | INFO     | src.core.trading_hub:start:77 - Subscribing to quotes for: ['AAPL', 'MSFT']
+2025-11-16 01:24:41.099 | INFO     | src.core.trading_hub:_periodic_agent_loop:49 - Starting loop for periodic agent 'DeltaHedger' with period 0:00:30.
+2025-11-16 01:24:41.099 | DEBUG    | src.built_in_agents.delta_hedger:run:70 - DeltaHedger running hedging logic...
+2025-11-16 01:24:41.209 | INFO     | src.core.trading_hub:_periodic_agent_loop:49 - Starting loop for periodic agent 'Quoter' with period 0:00:05.

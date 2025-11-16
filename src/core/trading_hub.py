@@ -14,10 +14,10 @@ from src.alpaca_wrapper.trading import AlpacaTrading
 class TradingHub:
     """The central engine for a trading strategy."""
 
-    def __init__(self, cache: DataCache = None):
+    def __init__(self):
         """Initializes the TradingHub."""
         self.alpaca_market_data: AlpacaMarketData = AlpacaMarketData()
-        self.cache = cache if cache else DataCache()
+        self.cache = DataCache()
         self.alpaca_trading: AlpacaTrading = AlpacaTrading()
         self.event_agents: List[TradingAgent] = []
         self.periodic_agents: List[TradingAgent] = []

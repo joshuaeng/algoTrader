@@ -14,7 +14,7 @@ from src.core.trading_agent import TradingAgent
 class SpreadCalculator(TradingAgent):
     """A TradingAgent that calculates a rolling average of the bid-ask spread."""
 
-    def __init__(self, config: Dict[str, Any], data_cache: DataCache, communication_bus: CommunicationBus, **kwargs):
+    def __init__(self, config: Dict[str, Any], data_cache: DataCache, communication_bus: CommunicationBus):
         """Initializes the SpreadCalculator agent.
 
         The configuration dictionary should contain:
@@ -26,7 +26,7 @@ class SpreadCalculator(TradingAgent):
             config: The configuration dictionary for the agent.
             data_cache: The shared DataCache instance.
         """
-        super().__init__(config, data_cache, communication_bus, agent_type='event_driven', **kwargs)
+        super().__init__(config, data_cache, communication_bus, agent_type='event_driven')
         self.instruments: List[str] = self.config['instruments']
         self.window_size: int = self.config.get('window_size', 100)
         self.min_data_size: int = self.config.get('min_data_size', 20)
