@@ -5,6 +5,7 @@ from collections import deque
 import numpy as np
 from loguru import logger
 
+from src.core.communication_bus import CommunicationBus
 from src.core.data_cache import DataCache
 from src.data.data_types import DataObject
 from src.core.trading_agent import TradingAgent

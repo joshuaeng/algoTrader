@@ -4,6 +4,7 @@ from typing import Optional, Any, Dict
 from loguru import logger
 
 from src.built_in_agents.delta_hedger import DeltaHedger
+from src.core.communication_bus import CommunicationBus
 from src.core.trading_agent import TradingAgent
 from src.core.trading_hub import TradingHub
 from src.core.data_cache import DataCache
@@ -83,15 +84,35 @@ async def main():
     # 3. Instantiate and add built_in_agents to the hub
     # Event-driven built_in_agents
     await trading_hub.add_agent(
-        Spotter(config=spotter_config, data_cache=shared_cache, communication_bus=trading_hub.communication_bus)
+        Spotter(
+            config=spotter_config,
+            data_cache=shared_cache,
+            communication_bus=trading_hub.communication_bus
+        )
     )
     await trading_hub.add_agent(
-        SpreadCalculator(config=spread_calc_config, data_cache=shared_cache, communication_bus=trading_hub.communication_bus)
+        SpreadCalculator(
+            config=spread_calc_config,
+            data_cache=shared_cache,
+            communication_bus=trading_hub.communication_bus
+        )
     )
 
     # Periodic built_in_agents
-    await trading_hub.add_agent(DeltaHedger(config=delta_hedger_config, data_cache=shared_cache, communication_bus=trading_hub.communication_bus))
-    await trading_hub.add_agent(Quoter(config=quoter_config, data_cache=shared_cache, communication_bus=trading_hub.communication_bus))
+    await trading_hub.add_agent(
+        DeltaHedger(
+            config=delta_hedger_config,
+            data_cache=shared_cache,
+            communication_bus=trading_hub.communication_bus
+        )
+    )
+    await trading_hub.add_agent(
+        Quoter(
+            config=quoter_config,
+            data_cache=shared_cache,
+            communication_bus=trading_hub.communication_bus
+        )
+    )
 
     # 4. Start the hub. This will run until interrupted.
     await trading_hub.start()

@@ -247,3 +247,41 @@
 2025-11-14 21:23:26.161 | DEBUG    | src.built_in_agents.spotter:run:64 - [MSFT] Processed quote at 2025-11-14T20:23:26.161352 | Fair Price: 510.5111
 2025-11-14 21:23:26.945 | DEBUG    | src.built_in_agents.spotter:run:64 - [MSFT] Processed quote at 2025-11-14T20:23:26.945818 | Fair Price: 510.4250
 2025-11-14 21:23:27.462 | DEBUG    | src.built_in_agents.spotter:run:64 - [MSFT] Processed quote at 2025-11-14T20:23:27.462828 | Fair Price: 510.3143
+2025-11-16 01:09:17.135 | INFO     | __main__:main:72 - Setting up the TradingHub and its built_in_agents.
+2025-11-16 01:09:17.141 | INFO     | src.core.trading_agent:set_throttle:68 - [Spotter] Throttle was set to 0:00:00.500000.
+2025-11-16 01:09:17.141 | INFO     | src.built_in_agents.spotter:__init__:21 - Spotter initialized for 2 instruments. Fair price is calculated with method: crossed_vwap
+2025-11-16 01:09:17.141 | INFO     | src.core.trading_hub:add_agent:39 - Added event-driven agent: Spotter
+2025-11-16 01:09:17.141 | INFO     | src.core.trading_agent:set_throttle:68 - [SpreadCalculator] Throttle was set to 0:00:02.
+2025-11-16 01:09:17.141 | INFO     | src.built_in_agents.spread_calculator:__init__:39 - SpreadCalculator agent initialized for 2 instruments. Window size: 100, Min data: 20
+2025-11-16 01:09:17.141 | INFO     | src.core.trading_hub:add_agent:39 - Added event-driven agent: SpreadCalculator
+2025-11-16 01:10:39.773 | INFO     | __main__:main:72 - Setting up the TradingHub and its built_in_agents.
+2025-11-16 01:10:39.775 | INFO     | src.core.trading_agent:set_throttle:68 - [Spotter] Throttle was set to 0:00:00.500000.
+2025-11-16 01:10:39.775 | INFO     | src.built_in_agents.spotter:__init__:21 - Spotter initialized for 2 instruments. Fair price is calculated with method: crossed_vwap
+2025-11-16 01:10:39.775 | INFO     | src.core.trading_hub:add_agent:39 - Added event-driven agent: Spotter
+2025-11-16 01:10:39.775 | INFO     | src.core.trading_agent:set_throttle:68 - [SpreadCalculator] Throttle was set to 0:00:02.
+2025-11-16 01:10:39.776 | INFO     | src.built_in_agents.spread_calculator:__init__:39 - SpreadCalculator agent initialized for 2 instruments. Window size: 100, Min data: 20
+2025-11-16 01:10:39.776 | INFO     | src.core.trading_hub:add_agent:39 - Added event-driven agent: SpreadCalculator
+2025-11-16 01:11:19.627 | INFO     | __main__:main:72 - Setting up the TradingHub and its built_in_agents.
+2025-11-16 01:11:19.631 | INFO     | src.core.trading_agent:set_throttle:68 - [Spotter] Throttle was set to 0:00:00.500000.
+2025-11-16 01:11:19.631 | INFO     | src.built_in_agents.spotter:__init__:21 - Spotter initialized for 2 instruments. Fair price is calculated with method: crossed_vwap
+2025-11-16 01:11:19.631 | INFO     | src.core.trading_hub:add_agent:39 - Added event-driven agent: Spotter
+2025-11-16 01:11:19.631 | INFO     | src.core.trading_agent:set_throttle:68 - [SpreadCalculator] Throttle was set to 0:00:02.
+2025-11-16 01:11:19.632 | INFO     | src.built_in_agents.spread_calculator:__init__:39 - SpreadCalculator agent initialized for 2 instruments. Window size: 100, Min data: 20
+2025-11-16 01:11:19.632 | INFO     | src.core.trading_hub:add_agent:39 - Added event-driven agent: SpreadCalculator
+2025-11-16 01:11:36.177 | INFO     | __main__:main:72 - Setting up the TradingHub and its built_in_agents.
+2025-11-16 01:11:36.179 | INFO     | src.core.trading_agent:set_throttle:68 - [Spotter] Throttle was set to 0:00:00.500000.
+2025-11-16 01:11:36.179 | INFO     | src.built_in_agents.spotter:__init__:21 - Spotter initialized for 2 instruments. Fair price is calculated with method: crossed_vwap
+2025-11-16 01:11:36.179 | INFO     | src.core.trading_hub:add_agent:39 - Added event-driven agent: Spotter
+2025-11-16 01:11:36.179 | INFO     | src.core.trading_agent:set_throttle:68 - [SpreadCalculator] Throttle was set to 0:00:02.
+2025-11-16 01:11:36.180 | INFO     | src.built_in_agents.spread_calculator:__init__:39 - SpreadCalculator agent initialized for 2 instruments. Window size: 100, Min data: 20
+2025-11-16 01:11:36.180 | INFO     | src.core.trading_hub:add_agent:39 - Added event-driven agent: SpreadCalculator
+2025-11-16 01:11:36.180 | INFO     | src.core.trading_agent:set_throttle:68 - [DeltaHedger] Throttle was set to 0:00:30.
+2025-11-16 01:11:36.180 | INFO     | src.built_in_agents.delta_hedger:__init__:35 - DeltaHedger periodic agent initialized. Running every 0:00:30.
+2025-11-16 01:11:36.611 | INFO     | src.built_in_agents.delta_hedger:initialize:40 - Initial position update done.
+2025-11-16 01:11:36.611 | INFO     | src.core.trading_hub:add_agent:34 - Added periodic agent: DeltaHedger
+2025-11-16 01:11:36.612 | INFO     | src.core.trading_agent:set_throttle:68 - [Quoter] Throttle was set to 0:00:05.
+2025-11-16 01:11:36.612 | INFO     | src.core.trading_hub:add_agent:34 - Added periodic agent: Quoter
+2025-11-16 01:11:36.612 | INFO     | src.core.trading_hub:start:77 - Subscribing to quotes for: ['MSFT', 'AAPL']
+2025-11-16 01:11:36.615 | INFO     | src.core.trading_hub:_periodic_agent_loop:49 - Starting loop for periodic agent 'DeltaHedger' with period 0:00:30.
+2025-11-16 01:11:36.615 | DEBUG    | src.built_in_agents.delta_hedger:run:70 - DeltaHedger running hedging logic...
+2025-11-16 01:11:36.724 | INFO     | src.core.trading_hub:_periodic_agent_loop:49 - Starting loop for periodic agent 'Quoter' with period 0:00:05.

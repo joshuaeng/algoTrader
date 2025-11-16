@@ -4,6 +4,7 @@ from typing import Dict, Any, List, Optional
 from alpaca.trading.models import Position
 from loguru import logger
 
+from src.core.communication_bus import CommunicationBus
 from src.core.data_cache import DataCache
 from src.core.trading_agent import TradingAgent
 from src.data.data_types import DataObject
@@ -25,7 +26,7 @@ class DeltaHedger(TradingAgent):
         - 'instrument_delta_limit': (Optional) The target delta in quote currency. Defaults to 0.
         """
         # This agent is periodic by nature.
-        super().__init__(config, data_cache, communication_bus, agent_type='periodic')
+        super().__init__(config, data_cache, agent_type='periodic', communication_bus=communication_bus)
         self.instrument_delta_limit: float = self.config.get('instrument_delta_limit', 0.0)
         self.positions: Optional[List[Position]] = None
         self.last_spot: Dict[str, DataObject] = {}
@@ -33,7 +34,7 @@ class DeltaHedger(TradingAgent):
 
         logger.info(f"DeltaHedger periodic agent initialized. Running every {self.throttle}.")
 
-    def initialize(self):
+    async def initialize(self):
         """Initial position update."""
         await self._update_positions()
         logger.info("Initial position update done.")
@@ -48,7 +49,7 @@ class DeltaHedger(TradingAgent):
         for instrument in self.instrument_scope:
             await self.communication_bus.subscribe_listener(f"SPOT_PRICE('{instrument}')", self.snap_spot)
 
-    def _update_positions(self):
+    async def _update_positions(self):
         """Fetches the latest positions from the trading client."""
         if not self.trading_client:
             return

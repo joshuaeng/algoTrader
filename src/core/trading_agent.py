@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional
 
 from loguru import logger
 
-from src.core.stateful_communication_bus import StatefulCommunicationBus as CommunicationBus
+from src.core.communication_bus import CommunicationBus as CommunicationBus
 from src.core.data_cache import DataCache
 from src.alpaca_wrapper.trading import AlpacaTrading
 

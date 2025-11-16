@@ -3,6 +3,7 @@ from typing import Dict, Any, List, Optional
 
 from loguru import logger
 
+from src.core.communication_bus import CommunicationBus
 from src.core.data_cache import DataCache
 from src.data.data_types import DataObject
 from src.core.trading_agent import TradingAgent

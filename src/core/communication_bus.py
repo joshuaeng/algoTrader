@@ -2,7 +2,7 @@ from typing import Any, Callable, Dict, Set
 import asyncio
 
 
-class StatefulCommunicationBus:
+class CommunicationBus:
     def __init__(self):
         self.subscription_repository: Dict[str, Set[Callable]] = {}
         self.last_value_repository: Dict[str, Any] = {}
