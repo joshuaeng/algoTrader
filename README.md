@@ -1,127 +1,134 @@
-# Event-Driven Trading Framework
+# Multi-Agent Trading Framework
 
-This is a Python-based framework for developing and executing event-driven, agent-based trading algorithms using the Alpaca API. The framework is built around a central `TradingHub` that streams market data and delegates all processing and decision-making to a collection of pluggable `TradingAgent` components.
+A flexible, event-driven, multi-agent framework for building algorithmic trading strategies using the Alpaca API.
 
-## Core Architecture
+## Key Features
 
-The framework is composed of three main components:
+- **Multi-Agent Architecture**: Build your strategy by combining independent, reusable agents.
+- **Event-Driven**: Agents communicate through an event bus, reacting to market data or other internal events.
+- **Hybrid Agent Support**: Supports both event-driven agents (reacting to market data) and periodic agents (running on a schedule).
+- **Extensible**: Easily create your own custom agents to encapsulate specific logic.
+- **Alpaca Integration**: Connects to Alpaca for market data streams and trade execution.
 
-1.  **`TradingHub`**: The engine of the framework. It manages the connection to the market data stream and dispatches live data to all registered agents.
-2.  **`TradingAgent`**: An autonomous, pluggable component that contains a specific piece of logic. Agents can be event-driven or periodic.
-3.  **`CommunicationBus`**: A simple pub/sub bus that allows agents to communicate with each other by publishing and subscribing to topics.
+## Core Concepts
 
-At the heart of the framework is the `DataObject`, a generic container for all data that flows through the system. This allows for a flexible and extensible architecture where users can create their own data types and agents without modifying the core framework.
+- **Trading Hub**: The central engine that manages the lifecycle of agents, and orchestrates the flow of data.
+- **Trading Agent**: The base class for all trading logic. Agents can be `event_driven` or `periodic`.
+- **Communication Bus**: A publish-subscribe system that allows agents to communicate with each other in a decoupled manner. Agents can publish events and subscribe to listen to events from other agents.
 
-## Project Structure
+## Getting Started
 
-```
-.
-├───README.md
-├───requirements.txt
-├───examples/
-│   └───multi_agent_strategy.py
-└───src/
-    ├───core/
-    │   ├───trading_hub.py
-    │   ├───trading_agent.py
-    │   ├───data_cache.py
-    │   └───communication_bus.py
-    ├───built_in_agents/
-    │   ├───spotter.py
-    │   ├───spread_calculator.py
-    │   └───delta_hedger.py
-    ├───data/
-    │   └───data_types.py
-    └───alpaca_wrapper/
-        ├───base.py
-        ├───market_data.py
-        └───trading.py
-```
+### Prerequisites
 
-## Installation
+- Python 3.9+
 
-1.  Clone the repository:
+### Installation
+
+1.  **Clone the repository:**
     ```bash
-    git clone <repository_url>
+    git clone <repository-url>
+    cd <repository-name>
     ```
-2.  Install the dependencies:
+
+2.  **Install dependencies:**
     ```bash
     pip install -r requirements.txt
     ```
-3.  Set your Alpaca API keys as environment variables:
-    ```bash
-    export APCA_API_KEY_ID="YOUR_KEY_ID"
-    export APCA_API_SECRET_KEY="YOUR_SECRET_KEY"
+
+### Configuration
+
+This framework requires Alpaca API keys to connect to the market.
+
+1.  **Create a `config.ini` file** in the root of the project.
+
+2.  **Add your Alpaca API keys** to the file with the following structure:
+
+    ```ini
+    [alpaca]
+    api_key = YOUR_API_KEY
+    secret_key = YOUR_SECRET_KEY
     ```
+    
+    Replace `YOUR_API_KEY` and `YOUR_SECRET_KEY` with your actual Alpaca keys. You can specify paper or live trading keys.
 
-## Usage Guide
+## Usage
 
-The `examples/multi_agent_strategy.py` script provides a complete example of how to use the framework. Here is a breakdown of the key steps:
+The main entry point for a strategy is a script where you instantiate a `TradingHub`, add your desired agents, and start the hub.
 
-### 1. Initialize Core Components
+The example below demonstrates a simple multi-agent strategy:
 
 ```python
+# examples/multi_agent_strategy.py
+
+import asyncio
 from src.core.trading_hub import TradingHub
-from src.core.data_cache import DataCache
-
-shared_cache = DataCache()
-trading_hub = TradingHub(cache=shared_cache)
-```
-
-### 2. Configure and Add Agents
-
-```python
 from src.built_in_agents.spotter import Spotter
 from src.built_in_agents.spread_calculator import SpreadCalculator
-from src.built_in_agents.delta_hedger import DeltaHedger
-from examples.multi_agent_strategy import Quoter
-
-# Define configurations for your agents
-spotter_config = {'instruments': ["AAPL", "MSFT"], 'throttle': '500ms'}
-spread_calc_config = {'instruments': ["AAPL", "MSFT"], 'throttle': '2s'}
-delta_hedger_config = {'throttle': '30s'}
-quoter_config = {'throttle': '5s'}
-
-# Instantiate and add agents to the hub
-await trading_hub.add_agent(Spotter(config=spotter_config, data_cache=shared_cache, communication_bus=trading_hub.communication_bus))
-await trading_hub.add_agent(SpreadCalculator(config=spread_calc_config, data_cache=shared_cache, communication_bus=trading_hub.communication_bus))
-await trading_hub.add_agent(DeltaHedger(config=delta_hedger_config, data_cache=shared_cache, communication_bus=trading_hub.communication_bus))
-await trading_hub.add_agent(Quoter(config=quoter_config, data_cache=shared_cache, communication_bus=trading_hub.communication_bus))
-```
-
-### 3. Start the Hub
-
-```python
-import asyncio
 
 async def main():
-    # ... (setup code from previous steps) ...
+    """Main function to set up and run the algorithm."""
+    
+    # 1. Initialize the core components
+    trading_hub = TradingHub()
+
+    # 2. Define the instruments to trade
+    instruments = ["AAPL", "MSFT"]
+
+    # 3. Add agents to the hub with their configs
+    await trading_hub.add_agent(Spotter, {'instruments': instruments, 'throttle': '5s'})
+    await trading_hub.add_agent(SpreadCalculator, {'instruments': instruments, 'throttle': '200ms'})
+    
+    # 4. Start the hub. This will run until interrupted.
     await trading_hub.start()
 
 if __name__ == "__main__":
     asyncio.run(main())
 ```
 
+To run the example strategy, execute the following command from the project root:
+
+```bash
+python examples/multi_agent_strategy.py
+```
+
 ## Creating a Custom Agent
 
-To create your own agent, inherit from `TradingAgent` and implement the `run` method. You can then use the `communication_bus` to subscribe to topics and publish your own data.
+You can easily create your own agents by inheriting from the `TradingAgent` base class. The example below shows a simple periodic agent that calculates and publishes a quote.
 
 ```python
 from src.core.trading_agent import TradingAgent
 from src.data.data_types import DataObject
 
-class MyCustomAgent(TradingAgent):
-    def __init__(self, config, data_cache, **kwargs):
-        super().__init__(config, data_cache, **kwargs)
+class Quoter(TradingAgent):
+    """
+    A simple periodic agent that calculates and publishes quotes.
+    """
+    def __init__(self, config, data_cache, communication_bus):
+        # Set agent_type to 'periodic' and a throttle of '5s'
+        super().__init__(config, data_cache, communication_bus, agent_type='periodic', throttle='5s')
+        self.last_spot_price = None
 
     async def initialize(self):
-        await self.communication_bus.subscribe_listener("some_topic", self.on_data)
+        # Subscribe to spot price events from other agents
+        await self.communication_bus.subscribe_listener(
+            "SPOT_PRICE('AAPL')",
+            self.on_spot_price
+        )
 
-    async def on_data(self, topic: str, data: DataObject):
-        # Process data
-        pass
+    async def on_spot_price(self, spot_price: DataObject):
+        # Store the latest spot price
+        self.last_spot_price = spot_price.get('value')
 
-    async def run(self, data=None):
-        # Agent's main logic
-        pass
+    async def run(self):
+        # Core logic for the periodic agent
+        if self.last_spot_price:
+            # Calculate bid/ask
+            bid_price = self.last_spot_price * 0.99
+            ask_price = self.last_spot_price * 1.01
+            
+            # Publish the new quote on the communication bus
+            quote_data = DataObject.create('quote', bid=bid_price, ask=ask_price)
+            await self.communication_bus.publish("QUOTE('AAPL')", value=quote_data)
+            print(f"Published quote for AAPL: Bid={bid_price:.2f}, Ask={ask_price:.2f}")
+
 ```
