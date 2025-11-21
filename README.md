@@ -13,7 +13,8 @@ A flexible, event-driven, multi-agent framework for building algorithmic trading
 ## Core Concepts
 
 - **Trading Hub**: The central engine that manages the lifecycle of agents, and orchestrates the flow of data.
-- **Trading Agent**: The base class for all trading logic. Agents can be `event_driven` or `periodic`.
+- **EventDrivenAgent**: A base class for agents that react to market data events. The frequency of execution is controlled by a `throttle`.
+- **PeriodicAgent**: A base class for agents that run on a fixed schedule. The execution frequency is controlled by a `period`.
 - **Communication Bus**: A publish-subscribe system that allows agents to communicate with each other in a decoupled manner. Agents can publish events and subscribe to listen to events from other agents.
 
 ## Getting Started
@@ -64,6 +65,7 @@ import asyncio
 from src.core.trading_hub import TradingHub
 from src.built_in_agents.spotter import Spotter
 from src.built_in_agents.spread_calculator import SpreadCalculator
+from src.built_in_agents.delta_hedger import DeltaHedger
 
 async def main():
     """Main function to set up and run the algorithm."""
@@ -75,8 +77,12 @@ async def main():
     instruments = ["AAPL", "MSFT"]
 
     # 3. Add agents to the hub with their configs
+    # Event-driven agents
     await trading_hub.add_agent(Spotter, {'instruments': instruments, 'throttle': '5s'})
     await trading_hub.add_agent(SpreadCalculator, {'instruments': instruments, 'throttle': '200ms'})
+    
+    # Periodic agent
+    await trading_hub.add_agent(DeltaHedger, {'period': '30s'})
     
     # 4. Start the hub. This will run until interrupted.
     await trading_hub.start()
@@ -93,19 +99,19 @@ python examples/multi_agent_strategy.py
 
 ## Creating a Custom Agent
 
-You can easily create your own agents by inheriting from the `TradingAgent` base class. The example below shows a simple periodic agent that calculates and publishes a quote.
+You can easily create your own agents by inheriting from `EventDrivenAgent` or `PeriodicAgent`. The example below shows a simple `PeriodicAgent` that calculates and publishes a quote.
 
 ```python
-from src.core.trading_agent import TradingAgent
+from src.core.trading_agent import PeriodicAgent
 from src.data.data_types import DataObject
 
-class Quoter(TradingAgent):
+class Quoter(PeriodicAgent):
     """
     A simple periodic agent that calculates and publishes quotes.
     """
     def __init__(self, config, data_cache, communication_bus):
-        # Set agent_type to 'periodic' and a throttle of '5s'
-        super().__init__(config, data_cache, communication_bus, agent_type='periodic', throttle='5s')
+        # Pass a 'period' for periodic execution
+        super().__init__(config, data_cache, communication_bus, period='5s')
         self.last_spot_price = None
 
     async def initialize(self):
@@ -131,4 +137,9 @@ class Quoter(TradingAgent):
             await self.communication_bus.publish("QUOTE('AAPL')", value=quote_data)
             print(f"Published quote for AAPL: Bid={bid_price:.2f}, Ask={ask_price:.2f}")
 
+```
+To use this agent, you would add it to the `TradingHub` in your main script:
+
+```python
+await trading_hub.add_agent(Quoter, {'period': '5s'})
 ```

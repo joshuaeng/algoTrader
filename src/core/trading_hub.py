@@ -1,12 +1,11 @@
-
 import asyncio
-from typing import List, Set
+from typing import List, Set, Dict, Any
 
 from loguru import logger
 
 from src.core.communication_bus import CommunicationBus
 from src.core.data_cache import DataCache
-from src.core.trading_agent import TradingAgent
+from src.core.trading_agent import EventDrivenAgent, PeriodicAgent, TradingAgent
 from src.alpaca_wrapper.market_data import AlpacaMarketData
 from src.alpaca_wrapper.trading import AlpacaTrading
 
@@ -19,9 +18,14 @@ class TradingHub:
         self.alpaca_market_data: AlpacaMarketData = AlpacaMarketData()
         self.cache = DataCache()
         self.alpaca_trading: AlpacaTrading = AlpacaTrading()
-        self.event_agents: List[TradingAgent] = []
-        self.periodic_agents: List[TradingAgent] = []
-        self._subscribed_quotes: Set[str] = set()
+        self.event_agents: List[EventDrivenAgent] = []
+        self.periodic_agents: List[PeriodicAgent] = []
+        # New subscription structure: channel -> symbol -> [agents]
+        self.subscriptions: Dict[str, Dict[str, List[EventDrivenAgent]]] = {
+            "quotes": {},
+            "trades": {},
+            "bars": {}
+        }
         self.communication_bus = CommunicationBus()
 
     async def add_agent(self, agent_class: type, config: dict):
@@ -32,33 +36,92 @@ class TradingHub:
             communication_bus=self.communication_bus
         )
         agent.set_trading_client(self.alpaca_trading)
-        await agent.initialize()
+        agent.set_hub(self)  # Set the hub reference for the agent
+        await agent.initialize() # Agents now subscribe themselves in initialize()
 
-        if agent.agent_type == 'periodic':
+        if isinstance(agent, PeriodicAgent):
             self.periodic_agents.append(agent)
             logger.info(f"Added periodic agent: {agent.__class__.__name__}")
-        else:
+        elif isinstance(agent, EventDrivenAgent):
             self.event_agents.append(agent)
-            if hasattr(agent, 'instruments') and agent.instruments:
-                self._subscribed_quotes.update(agent.instruments)
             logger.info(f"Added event-driven agent: {agent.__class__.__name__}")
+        else:
+            logger.warning(f"Agent {agent.__class__.__name__} is not an instance of EventDrivenAgent or "
+                           f"PeriodicAgent, it will not be run.")
 
-    async def _aggregate_agent_listeners(self, data):
-        """Dispatches market data to all event-driven built_in_agents."""
-        logger.debug(f"Dispatching data to {len(self.event_agents)} event agents: {data}")
-        for agent in self.event_agents:
-            asyncio.create_task(agent.start(data))
+    async def subscribe(self, agent: EventDrivenAgent, channel: str, symbols: List[str]):
+        """
+        Allows an EventDrivenAgent to subscribe to a specific channel and list of symbols.
+        """
+        if not isinstance(agent, EventDrivenAgent):
+            logger.warning(f"Agent {agent.__class__.__name__} is not an EventDrivenAgent and cannot subscribe to channels.")
+            return
+
+        if channel not in self.subscriptions:
+            logger.warning(f"Unsupported channel '{channel}' for subscription by {agent.__class__.__name__}.")
+            return
+
+        for symbol in symbols:
+            if symbol not in self.subscriptions[channel]:
+                self.subscriptions[channel][symbol] = []
+            if agent not in self.subscriptions[channel][symbol]:
+                self.subscriptions[channel][symbol].append(agent)
+                logger.info(f"Agent {agent.__class__.__name__} subscribed to {channel} for {symbol}.")
+
+    async def _dispatch_data(self, data: Any):
+        """
+        Dispatches market data to agents that are subscribed
+        to the specific channel and instrument.
+        """
+        # Determine channel and symbol from the incoming data object
+        # This part needs to be robust based on alpaca-py data types
+        channel = None
+        symbol = None
+
+        # Example: Infer channel and symbol based on common alpaca-py data object attributes
+        if hasattr(data, 'symbol'):
+            symbol = data.symbol
+        elif hasattr(data, 'S'): # For some bar data
+            symbol = data.S
+
+        if hasattr(data, 'msg_type'):
+            if data.msg_type == 'q':
+                channel = "quotes"
+            elif data.msg_type == 't':
+                channel = "trades"
+            elif data.msg_type == 'b': # Assuming 'b' for bars
+                channel = "bars"
+        elif hasattr(data, 'T'): # For some data types, 'T' indicates type
+            if data.T == 'q':
+                channel = "quotes"
+            elif data.T == 't':
+                channel = "trades"
+            elif data.T == 'b':
+                channel = "bars"
+        elif hasattr(data, 'open') and hasattr(data, 'close'): # Heuristic for bar data
+            channel = "bars"
+            
+        if not channel or not symbol:
+            logger.warning(f"Could not determine channel or symbol for incoming data: {data}")
+            return
+
+        if channel in self.subscriptions and symbol in self.subscriptions[channel]:
+            logger.debug(f"Dispatching {channel} data for {symbol} to {len(self.subscriptions[channel][symbol])} agents.")
+            for agent in self.subscriptions[channel][symbol]:
+                asyncio.create_task(agent.start(data))
+        else:
+            logger.debug(f"No agents subscribed to {channel} for {symbol}.")
 
     @staticmethod
-    async def _periodic_agent_loop(agent: TradingAgent):
+    async def _periodic_agent_loop(agent: PeriodicAgent):
         """A dedicated loop for running a single periodic agent."""
-        logger.info(f"Starting loop for periodic agent '{agent.__class__.__name__}' with period {agent.throttle}.")
+        logger.info(f"Starting loop for periodic agent '{agent.__class__.__name__}' with period {agent.period}.")
         while True:
             try:
                 await agent.run()
             except Exception as e:
                 logger.exception(f"Error in periodic agent {agent.__class__.__name__}: {e}")
-            await asyncio.sleep(agent.throttle.total_seconds())
+            await asyncio.sleep(agent.period.total_seconds())
 
     async def start(self):
         """
@@ -66,24 +129,48 @@ class TradingHub:
         If a connection limit error occurs, it will wait and retry.
         """
         if not self.event_agents and not self.periodic_agents:
-            logger.warning("No built_in_agents added. The trading hub will do nothing.")
+            logger.warning("No agents added. The trading hub will do nothing.")
             return
 
         tasks = []
         for agent in self.periodic_agents:
             tasks.append(asyncio.create_task(self._periodic_agent_loop(agent)))
 
-        if self.event_agents:
-            if not self._subscribed_quotes:
-                logger.warning("No instruments to subscribe to for event-driven agents.")
-            else:
-                logger.info(f"Subscribing to quotes for: {list(self._subscribed_quotes)}")
+        # Collect all unique subscriptions for AlpacaMarketData
+        alpaca_subscriptions = {
+            "quotes": set(),
+            "trades": set(),
+            "bars": set()
+        }
+        for channel, symbols_dict in self.subscriptions.items():
+            for symbol in symbols_dict.keys():
+                if channel in alpaca_subscriptions:
+                    alpaca_subscriptions[channel].add(symbol)
+
+        if any(alpaca_subscriptions.values()):
+            logger.info(f"Alpaca Market Data Subscriptions: {alpaca_subscriptions}")
+
+            # Subscribe to Alpaca Market Data based on collected subscriptions
+            if alpaca_subscriptions["quotes"]:
                 self.alpaca_market_data.subscribe_stock_quotes(
-                    self._aggregate_agent_listeners,
-                    *list(self._subscribed_quotes)
+                    self._dispatch_data,
+                    *list(alpaca_subscriptions["quotes"])
                 )
-                logger.info("Hub is now waiting for market data...")
-                tasks.append(asyncio.create_task(self.alpaca_market_data.start_stream()))
+            if alpaca_subscriptions["trades"]:
+                self.alpaca_market_data.subscribe_stock_trades(
+                    self._dispatch_data,
+                    *list(alpaca_subscriptions["trades"])
+                )
+            if alpaca_subscriptions["bars"]:
+                self.alpaca_market_data.subscribe_stock_bars(
+                    self._dispatch_data,
+                    *list(alpaca_subscriptions["bars"])
+                )
+
+            logger.info("Hub is now waiting for market data...")
+            tasks.append(asyncio.create_task(self.alpaca_market_data.start_stream()))
+        else:
+            logger.warning("No event-driven agents subscribed to any market data channels.")
 
         if not tasks:
             logger.warning("No agents to run. The trading hub will do nothing.")

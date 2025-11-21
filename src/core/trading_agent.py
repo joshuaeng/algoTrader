@@ -2,13 +2,16 @@ import asyncio
 import re
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, TYPE_CHECKING
 
 from loguru import logger
 
 from src.core.communication_bus import CommunicationBus as CommunicationBus
 from src.core.data_cache import DataCache
 from src.alpaca_wrapper.trading import AlpacaTrading
+
+if TYPE_CHECKING:
+    from src.core.trading_hub import TradingHub
 
 
 def _parse_time_string(time_str: str) -> timedelta:
@@ -30,39 +33,14 @@ def _parse_time_string(time_str: str) -> timedelta:
 
 
 class TradingAgent(ABC):
-    """Abstract base class for trading built_in_agents."""
+    """Abstract base class for trading agents."""
 
-    def __init__(
-            self,
-            config:
-            Dict[str, Any],
-            data_cache: DataCache,
-            communication_bus: CommunicationBus,
-            agent_type: str = 'event_driven',
-            throttle: str = "1s"
-    ):
-        """Initializes the TradingAgent.
-
-        Args:
-            config: Configuration dictionary for the agent.
-            data_cache: Shared DataCache instance.
-            communication_bus: The communication bus instance.
-            agent_type: The type of agent, either 'event_driven' or 'periodic'.
-            throttle: The default throttle or period (e.g., "1s", "500ms").
-        """
+    def __init__(self, config: Dict[str, Any], data_cache: DataCache, communication_bus: CommunicationBus):
         self.config = config
         self.data_cache = data_cache
         self.trading_client: Optional[AlpacaTrading] = None
         self.communication_bus: CommunicationBus = communication_bus
-        self._last_execution_time: Optional[datetime] = None
-        self._throttle_lock = asyncio.Lock()
-
-        if agent_type not in ['event_driven', 'periodic']:
-            raise ValueError("agent_type must be either 'event_driven' or 'periodic'")
-
-        self.agent_type = agent_type
-        self.throttle: timedelta = timedelta(seconds=1)
-        self.set_throttle(self.config.get('throttle', throttle))
+        self.hub: Optional['TradingHub'] = None
         self.validate_config()
 
     async def initialize(self):
@@ -72,16 +50,29 @@ class TradingAgent(ABC):
     def set_trading_client(self, trading_client: AlpacaTrading):
         self.trading_client = trading_client
 
-    def set_throttle(self, time_str: str):
-        """Sets the throttle for an event-driven agent or the period for a periodic agent."""
-        self.throttle = _parse_time_string(time_str)
+    def set_hub(self, hub: 'TradingHub'):
+        """Sets a reference to the trading hub."""
+        self.hub = hub
+
+    def validate_config(self):
+        """Hook for subclasses to validate their specific configuration."""
+        pass
+
+
+class EventDrivenAgent(TradingAgent):
+    """Base class for event-driven trading agents."""
+
+    def __init__(self, config: Dict[str, Any], data_cache: DataCache, communication_bus: CommunicationBus,
+                 throttle: str = "1s"):
+        super().__init__(config, data_cache, communication_bus)
+        self._last_execution_time: Optional[datetime] = None
+        self._throttle_lock = asyncio.Lock()
+        throttle_str = self.config.get('throttle', throttle)
+        self.throttle: timedelta = _parse_time_string(throttle_str)
         logger.info(f"[{self.__class__.__name__}] Throttle was set to {self.throttle}.")
 
     async def start(self, data: Any):
         """Entry point for event-driven execution. Enforces throttling."""
-        if self.agent_type == 'periodic':
-            return
-
         if self._throttle_lock.locked():
             return
 
@@ -94,10 +85,22 @@ class TradingAgent(ABC):
             self._last_execution_time = datetime.utcnow()
 
     @abstractmethod
-    async def run(self, data=None):
-        """The core logic of the agent."""
+    async def run(self, data: Any):
+        """The core logic for processing an event."""
         pass
 
-    def validate_config(self):
-        """Hook for subclasses to validate their specific configuration."""
+
+class PeriodicAgent(TradingAgent):
+    """Base class for periodic trading agents."""
+
+    def __init__(self, config: Dict[str, Any], data_cache: DataCache, communication_bus: CommunicationBus,
+                 period: str = "1s"):
+        super().__init__(config, data_cache, communication_bus)
+        period_str = self.config.get('period', self.config.get('throttle', period))
+        self.period: timedelta = _parse_time_string(period_str)
+        logger.info(f"[{self.__class__.__name__}] Period was set to {self.period}.")
+
+    @abstractmethod
+    async def run(self):
+        """The core logic of the periodic task."""
         pass

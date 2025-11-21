@@ -208,10 +208,8 @@ class AlpacaMarketData(AlpacaConnector):
             handler (function): The callback function to handle the quote data.
             *tickers (str): The ticker symbols to subscribe to.
         """
-        logger.info(f"Subscribing to stock quotes for: {tickers}")
         self.stock_subscriptions.extend(tickers)
         self.stock_stream_client.subscribe_quotes(handler, *tickers)
-        logger.info("Subscribed to stock quotes")
 
     def subscribe_stock_bars(self, handler, *tickers):
         """

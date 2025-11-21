@@ -6,21 +6,21 @@ from loguru import logger
 from src.core.communication_bus import CommunicationBus
 from src.core.data_cache import DataCache
 from src.data.data_types import DataObject
-from src.core.trading_agent import TradingAgent
+from src.core.trading_agent import EventDrivenAgent
 
 
-class Spotter(TradingAgent):
+class Spotter(EventDrivenAgent):
     """A TradingAgent that calculates the spot price for instruments and caches it."""
 
     def __init__(self, config: Dict[str, Any], data_cache: DataCache, communication_bus: CommunicationBus):
         """Initializes the Spotter agent."""
-        super().__init__(config, data_cache, communication_bus, agent_type='event_driven')
-        self.instruments: List[str] = self.config['instruments']
-        self.fair_price_method: str = self.config.get('fair_price_method', 'crossed_vwap')
+        super().__init__(config, data_cache, communication_bus)
+        # self.instruments: List[str] = self.config['instruments'] # No longer needed here
+        # self.fair_price_method: str = self.config.get('fair_price_method', 'crossed_vwap') # No longer needed here
 
         logger.info(
-            f"Spotter initialized for {len(self.instruments)} instruments. "
-            f"Fair price is calculated with method: {self.fair_price_method}"
+            f"Spotter initialized for {len(self.config['instruments'])} instruments. "
+            f"Fair price is calculated with method: {self.config.get('fair_price_method', 'crossed_vwap')}"
         )
 
     def validate_config(self):
@@ -28,11 +28,19 @@ class Spotter(TradingAgent):
         if 'instruments' not in self.config or not self.config['instruments']:
             raise ValueError("Spotter config requires a non-empty 'instruments' list.")
 
+    async def initialize(self):
+        """Hook for subclasses to perform async initialization."""
+        if self.hub:
+            await self.hub.subscribe(self, "quotes", self.config['instruments'])
+        else:
+            logger.error("Spotter agent not attached to a hub, cannot subscribe to quotes.")
+
     def _calculate_fair_price(self, bid_price, ask_price, bid_size, ask_size) -> Optional[float]:
         """Calculates the fair price based on the configured method."""
-        if self.fair_price_method == 'crossed_vwap':
+        fair_price_method = self.config.get('fair_price_method', 'crossed_vwap')
+        if fair_price_method == 'crossed_vwap':
             return (bid_price * ask_size + ask_price * bid_size) / (bid_size + ask_size)
-        elif self.fair_price_method == 'vwap':
+        elif fair_price_method == 'vwap':
             return (bid_price * bid_size + ask_price * ask_size) / (bid_size + ask_size)
         else: # mid
             return (bid_price + ask_price) / 2
@@ -41,8 +49,9 @@ class Spotter(TradingAgent):
         """Processes incoming quote data to calculate and cache the spot price."""
         logger.info(f"Spotter received data: {data}")
         instrument = getattr(data, 'symbol', None)
-        if not instrument or instrument not in self.instruments:
-            return
+        # The hub now handles filtering, so this check is no longer needed here
+        # if not instrument or instrument not in self.instruments:
+        #     return
 
         now = datetime.utcnow()
 
@@ -68,4 +77,3 @@ class Spotter(TradingAgent):
 
         except Exception as e:
             logger.exception(f"[{instrument}] Error processing quote in Spotter: {e}")
-

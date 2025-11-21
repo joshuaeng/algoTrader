@@ -8,10 +8,10 @@ from loguru import logger
 from src.core.communication_bus import CommunicationBus
 from src.core.data_cache import DataCache
 from src.data.data_types import DataObject
-from src.core.trading_agent import TradingAgent
+from src.core.trading_agent import EventDrivenAgent
 
 
-class SpreadCalculator(TradingAgent):
+class SpreadCalculator(EventDrivenAgent):
     """A TradingAgent that calculates a rolling average of the bid-ask spread."""
 
     def __init__(self, config: Dict[str, Any], data_cache: DataCache, communication_bus: CommunicationBus):
@@ -26,18 +26,18 @@ class SpreadCalculator(TradingAgent):
             config: The configuration dictionary for the agent.
             data_cache: The shared DataCache instance.
         """
-        super().__init__(config, data_cache, communication_bus, agent_type='event_driven')
-        self.instruments: List[str] = self.config['instruments']
+        super().__init__(config, data_cache, communication_bus)
+        # self.instruments: List[str] = self.config['instruments'] # No longer needed here
         self.window_size: int = self.config.get('window_size', 100)
         self.min_data_size: int = self.config.get('min_data_size', 20)
 
         # In-memory state to hold recent spread values for each instrument
         self.spread_history: Dict[str, deque] = {
-            instrument: deque(maxlen=self.window_size) for instrument in self.instruments
+            instrument: deque(maxlen=self.window_size) for instrument in self.config['instruments']
         }
 
         logger.info(
-            f"SpreadCalculator agent initialized for {len(self.instruments)} instruments. "
+            f"SpreadCalculator agent initialized for {len(self.config['instruments'])} instruments. "
             f"Window size: {self.window_size}, Min data: {self.min_data_size}"
         )
 
@@ -46,14 +46,22 @@ class SpreadCalculator(TradingAgent):
         if 'instruments' not in self.config or not self.config['instruments']:
             raise ValueError("SpreadCalculator config requires a non-empty 'instruments' list.")
 
+    async def initialize(self):
+        """Hook for subclasses to perform async initialization."""
+        if self.hub:
+            await self.hub.subscribe(self, "quotes", self.config['instruments'])
+        else:
+            logger.error("SpreadCalculator agent not attached to a hub, cannot subscribe to quotes.")
+
     async def run(self, data: Optional[Any] = None):
         """Processes incoming quote data to calculate and cache the rolling average spread."""
         if not data:
             return
 
         instrument = getattr(data, 'symbol', None)
-        if not instrument or instrument not in self.instruments:
-            return
+        # The hub now handles filtering, so this check is no longer needed here
+        # if not instrument or instrument not in self.instruments:
+        #     return
 
         now = datetime.datetime.utcnow()
 

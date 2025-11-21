@@ -6,11 +6,11 @@ from loguru import logger
 
 from src.core.communication_bus import CommunicationBus
 from src.core.data_cache import DataCache
-from src.core.trading_agent import TradingAgent
+from src.core.trading_agent import PeriodicAgent
 from src.data.data_types import DataObject
 
 
-class DeltaHedger(TradingAgent):
+class DeltaHedger(PeriodicAgent):
     """A periodic agent that monitors and hedges portfolio delta.
 
     This agent runs on a fixed schedule (e.g., every 30 seconds), checks
@@ -22,17 +22,17 @@ class DeltaHedger(TradingAgent):
         """Initializes the DeltaHedger agent.
 
         The configuration dictionary should contain:
-        - 'throttle': How often to run the hedging logic (e.g., "30s", "1m").
+        - 'period': How often to run the hedging logic (e.g., "30s", "1m").
         - 'instrument_delta_limit': (Optional) The target delta in quote currency. Defaults to 0.
         """
         # This agent is periodic by nature.
-        super().__init__(config, data_cache, agent_type='periodic', communication_bus=communication_bus)
+        super().__init__(config, data_cache, communication_bus)
         self.instrument_delta_limit: float = self.config.get('instrument_delta_limit', 0.0)
         self.positions: Optional[List[Position]] = None
         self.last_spot: Dict[str, DataObject] = {}
         self.instrument_scope: Optional[list] = None
 
-        logger.info(f"DeltaHedger initialized. Running every {self.throttle}.")
+        logger.info(f"DeltaHedger initialized. Running every {self.period}.")
 
     async def initialize(self):
         """Initial position update."""
@@ -65,7 +65,7 @@ class DeltaHedger(TradingAgent):
         spot_price = self.last_spot.get(instrument, None)
         return spot_price.get('value') if spot_price else None
 
-    async def run(self, data=None):
+    async def run(self):
         """Main hedging logic, executed periodically by the TradingHub."""
         logger.debug("DeltaHedger running hedging logic...")
         await self._update_positions()
