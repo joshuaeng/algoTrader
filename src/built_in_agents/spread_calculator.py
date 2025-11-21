@@ -80,13 +80,14 @@ class SpreadCalculator(TradingAgent):
 
                 spread_data = DataObject.create(
                     'spread',
-                    value=average_spread
+                    value=average_spread,
+                    instrument=instrument
                 )
 
                 # Publish the calculated average spread to the cache
                 await self.communication_bus.publish(f"SPREAD('{instrument}')", value=spread_data)
 
-                logger.debug(
+                logger.info(
                     f"[{instrument}] Processed quote at {now.isoformat()} | "
                     f"Avg Spread: {average_spread:.4f} (from {len(history)} values)"
                 )

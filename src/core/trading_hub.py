@@ -24,8 +24,13 @@ class TradingHub:
         self._subscribed_quotes: Set[str] = set()
         self.communication_bus = CommunicationBus()
 
-    async def add_agent(self, agent: TradingAgent):
+    async def add_agent(self, agent_class: type, config: dict):
         """Adds a trading agent to the hub, sorting it as event-driven or periodic."""
+        agent = agent_class(
+            config=config,
+            data_cache=self.cache,
+            communication_bus=self.communication_bus
+        )
         agent.set_trading_client(self.alpaca_trading)
         await agent.initialize()
 
@@ -40,6 +45,7 @@ class TradingHub:
 
     async def _aggregate_agent_listeners(self, data):
         """Dispatches market data to all event-driven built_in_agents."""
+        logger.debug(f"Dispatching data to {len(self.event_agents)} event agents: {data}")
         for agent in self.event_agents:
             asyncio.create_task(agent.start(data))
 
@@ -63,28 +69,25 @@ class TradingHub:
             logger.warning("No built_in_agents added. The trading hub will do nothing.")
             return
 
-        while True:
-            periodic_tasks = []
-            # Start periodic agent loops
-            for agent in self.periodic_agents:
-                periodic_tasks.append(asyncio.create_task(self._periodic_agent_loop(agent)))
+        tasks = []
+        for agent in self.periodic_agents:
+            tasks.append(asyncio.create_task(self._periodic_agent_loop(agent)))
 
-            # Start market data stream for event-driven built_in_agents
-            if self.event_agents:
-                if not self._subscribed_quotes:
-                    logger.warning("No instruments to subscribe to for event-driven built_in_agents.")
-                else:
-                    logger.info(f"Subscribing to quotes for: {list(self._subscribed_quotes)}")
-                    self.alpaca_market_data.subscribe_stock_quotes(
-                        self._aggregate_agent_listeners, 
-                        *list(self._subscribed_quotes)
-                    )
-                    
-                    await self.alpaca_market_data.start_stream()
+        if self.event_agents:
+            if not self._subscribed_quotes:
+                logger.warning("No instruments to subscribe to for event-driven agents.")
+            else:
+                logger.info(f"Subscribing to quotes for: {list(self._subscribed_quotes)}")
+                self.alpaca_market_data.subscribe_stock_quotes(
+                    self._aggregate_agent_listeners,
+                    *list(self._subscribed_quotes)
+                )
+                logger.info("Hub is now waiting for market data...")
+                tasks.append(asyncio.create_task(self.alpaca_market_data.start_stream()))
 
-            if not periodic_tasks:
-                logger.warning("Hub started but no active periodic tasks to run.")
-                return
+        if not tasks:
+            logger.warning("No agents to run. The trading hub will do nothing.")
+            return
 
-            logger.success("TradingHub started successfully.")
-            await asyncio.gather(*periodic_tasks)
+        logger.success("TradingHub started successfully.")
+        await asyncio.gather(*tasks)

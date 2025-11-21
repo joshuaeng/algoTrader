@@ -1,3 +1,4 @@
+from loguru import logger
 from src.alpaca_wrapper.base import AlpacaConnector
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.live import StockDataStream, CryptoDataStream, NewsDataStream
@@ -26,11 +27,13 @@ class AlpacaMarketData(AlpacaConnector):
         Initializes the AlpacaMarketData class.
         """
         super().__init__()
+        logger.info("Initializing AlpacaMarketData")
         self.historical_data_client = StockHistoricalDataClient(self.api_key, self.secret_key)
         self.stock_stream_client = StockDataStream(self.api_key, self.secret_key)
         self.stock_subscriptions = []
         self.crypto_subscriptions = []
         self.news_subscriptions = []
+        logger.info("AlpacaMarketData initialized")
 
     def get_historical_data(self, ticker: str, timeframe: TimeFrame, start: str, end: str) -> pd.DataFrame:
         """
@@ -57,7 +60,7 @@ class AlpacaMarketData(AlpacaConnector):
             )
             return self.historical_data_client.get_stock_bars(request_params).df
         except APIError as e:
-            print(f"Error getting historical data for {ticker}: {e}")
+            logger.exception(f"Error getting historical data for {ticker}: {e}")
             raise e
 
     def get_latest_bar(self, ticker: str) -> pd.Series:
@@ -79,7 +82,7 @@ class AlpacaMarketData(AlpacaConnector):
             )
             return self.historical_data_client.get_stock_bars(request_params).df.iloc[-1]
         except APIError as e:
-            print(f"Error getting latest bar for {ticker}: {e}")
+            logger.exception(f"Error getting latest bar for {ticker}: {e}")
             raise e
 
     def get_quotes(self, ticker: str, start: str, end: str) -> pd.DataFrame:
@@ -101,7 +104,7 @@ class AlpacaMarketData(AlpacaConnector):
             request_params = StockQuotesRequest(symbol_or_symbols=[ticker], start=start, end=end)
             return self.historical_data_client.get_stock_quotes(request_params).df
         except APIError as e:
-            print(f"Error getting quotes for {ticker}: {e}")
+            logger.exception(f"Error getting quotes for {ticker}: {e}")
             raise e
 
     def get_trades(self, ticker: str, start: str, end: str) -> pd.DataFrame:
@@ -123,7 +126,7 @@ class AlpacaMarketData(AlpacaConnector):
             request_params = StockTradesRequest(symbol_or_symbols=[ticker], start=start, end=end)
             return self.historical_data_client.get_stock_trades(request_params).df
         except APIError as e:
-            print(f"Error getting trades for {ticker}: {e}")
+            logger.exception(f"Error getting trades for {ticker}: {e}")
             raise e
 
     def get_latest_quote(self, ticker: str) -> dict:
@@ -143,7 +146,7 @@ class AlpacaMarketData(AlpacaConnector):
             request_params = StockLatestQuoteRequest(symbol_or_symbols=[ticker])
             return self.historical_data_client.get_stock_latest_quote(request_params)
         except APIError as e:
-            print(f"Error getting latest quote for {ticker}: {e}")
+            logger.exception(f"Error getting latest quote for {ticker}: {e}")
             raise e
 
     def get_latest_trade(self, ticker: str) -> dict:
@@ -163,7 +166,7 @@ class AlpacaMarketData(AlpacaConnector):
             request_params = StockLatestTradeRequest(symbol_or_symbols=[ticker])
             return self.historical_data_client.get_stock_latest_trade(request_params)
         except APIError as e:
-            print(f"Error getting latest trade for {ticker}: {e}")
+            logger.exception(f"Error getting latest trade for {ticker}: {e}")
             raise e
 
     def get_snapshot(self, ticker: str) -> dict:
@@ -183,7 +186,7 @@ class AlpacaMarketData(AlpacaConnector):
             request_params = StockSnapshotRequest(symbol_or_symbols=[ticker])
             return self.historical_data_client.get_stock_snapshot(request_params)
         except APIError as e:
-            print(f"Error getting snapshot for {ticker}: {e}")
+            logger.exception(f"Error getting snapshot for {ticker}: {e}")
             raise e
 
     def subscribe_stock_trades(self, handler, *tickers):
@@ -205,8 +208,10 @@ class AlpacaMarketData(AlpacaConnector):
             handler (function): The callback function to handle the quote data.
             *tickers (str): The ticker symbols to subscribe to.
         """
+        logger.info(f"Subscribing to stock quotes for: {tickers}")
         self.stock_subscriptions.extend(tickers)
         self.stock_stream_client.subscribe_quotes(handler, *tickers)
+        logger.info("Subscribed to stock quotes")
 
     def subscribe_stock_bars(self, handler, *tickers):
         """
@@ -223,5 +228,7 @@ class AlpacaMarketData(AlpacaConnector):
         """
         Starts the real-time data streams.
         """
+        logger.info("Starting market data stream")
         await self.stock_stream_client._run_forever()
+        logger.info("Market data stream stopped")
 

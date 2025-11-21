@@ -1,4 +1,5 @@
 import asyncio
+import sys
 from typing import Any, Dict
 
 from loguru import logger
@@ -20,8 +21,8 @@ class Quoter(TradingAgent):
     """
     A simple periodic agent that calculates quotes.
     """
-    def __init__(self, config: Dict[str, Any], data_cache: DataCache, communication_bus: CommunicationBus, **kwargs):
-        super().__init__(config, data_cache, communication_bus, agent_type='periodic', **kwargs)
+    def __init__(self, config: Dict[str, Any], data_cache: DataCache, communication_bus: CommunicationBus):
+        super().__init__(config, data_cache, communication_bus, agent_type='periodic')
         self.last_spot: Dict[str, DataObject] = {}
         self.last_spread: Dict[str, DataObject] = {}
 
@@ -66,49 +67,19 @@ class Quoter(TradingAgent):
 
 async def main():
     """Main function to set up and run the algorithm."""
-    logger.add("shadow_mm.log", rotation="5 MB", level="DEBUG")
+    logger.remove()
+    logger.add("multi_agent_strategy.log", rotation="5 MB", level="DEBUG", catch=False)
+    logger.add(sys.stderr, level="INFO")
     logger.info("Setting up the TradingHub and its built_in_agents.")
 
     # 1. Initialize the core components
     trading_hub = TradingHub()
 
-    # 2. Define configurations for the agents
-    spotter_config = {'instruments': INSTRUMENTS, 'throttle': '500ms'}
-    spread_calc_config = {'instruments': INSTRUMENTS, 'throttle': '2s'}
-    delta_hedger_config = {'throttle': '30s'}
-    quoter_config = {'throttle': '5s'}
-
-    # 3. Instantiate and add built_in_agents to the hub
-
-    await trading_hub.add_agent(
-        Spotter(
-            config=spotter_config,
-            data_cache=trading_hub.cache,
-            communication_bus=trading_hub.communication_bus
-        )
-    )
-    await trading_hub.add_agent(
-        SpreadCalculator(
-            config=spread_calc_config,
-            data_cache=trading_hub.cache,
-            communication_bus=trading_hub.communication_bus
-        )
-    )
-
-    await trading_hub.add_agent(
-        DeltaHedger(
-            config=delta_hedger_config,
-            data_cache=trading_hub.cache,
-            communication_bus=trading_hub.communication_bus
-        )
-    )
-    await trading_hub.add_agent(
-        Quoter(
-            config=quoter_config,
-            data_cache=trading_hub.cache,
-            communication_bus=trading_hub.communication_bus
-        )
-    )
+    # 2. Instantiate and add built_in_agents to the hub
+    await trading_hub.add_agent(Spotter, {'instruments': INSTRUMENTS, 'throttle': '5s'})
+    await trading_hub.add_agent(SpreadCalculator, {'instruments': INSTRUMENTS, 'throttle': '200ms'})
+    await trading_hub.add_agent(DeltaHedger, {'throttle': '30s'})
+    await trading_hub.add_agent(Quoter, {'throttle': '5s'})
 
     # 4. Start the hub. This will run until interrupted.
     await trading_hub.start()

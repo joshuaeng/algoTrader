@@ -39,6 +39,7 @@ class Spotter(TradingAgent):
 
     async def run(self, data=None):
         """Processes incoming quote data to calculate and cache the spot price."""
+        logger.info(f"Spotter received data: {data}")
         instrument = getattr(data, 'symbol', None)
         if not instrument or instrument not in self.instruments:
             return
@@ -54,12 +55,13 @@ class Spotter(TradingAgent):
 
             spot_price_data = DataObject.create(
                 'spot_price',
-                value=fair_price
+                value=fair_price,
+                instrument=instrument
             )
 
             await self.communication_bus.publish(f"SPOT_PRICE('{instrument}')", value=spot_price_data)
 
-            logger.debug(
+            logger.info(
                 f"[{instrument}] Processed quote at {now.isoformat()} | "
                 f"Fair Price: {fair_price:.4f}"
             )

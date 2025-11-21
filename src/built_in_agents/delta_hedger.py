@@ -32,7 +32,7 @@ class DeltaHedger(TradingAgent):
         self.last_spot: Dict[str, DataObject] = {}
         self.instrument_scope: Optional[list] = None
 
-        logger.info(f"DeltaHedger periodic agent initialized. Running every {self.throttle}.")
+        logger.info(f"DeltaHedger initialized. Running every {self.throttle}.")
 
     async def initialize(self):
         """Initial position update."""

@@ -1,3 +1,4 @@
+import asyncio
 import re
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
@@ -52,8 +53,9 @@ class TradingAgent(ABC):
         self.config = config
         self.data_cache = data_cache
         self.trading_client: Optional[AlpacaTrading] = None
-        self.communication_bus: Optional[CommunicationBus] = communication_bus
+        self.communication_bus: CommunicationBus = communication_bus
         self._last_execution_time: Optional[datetime] = None
+        self._throttle_lock = asyncio.Lock()
 
         if agent_type not in ['event_driven', 'periodic']:
             raise ValueError("agent_type must be either 'event_driven' or 'periodic'")
@@ -80,13 +82,16 @@ class TradingAgent(ABC):
         if self.agent_type == 'periodic':
             return
 
-        now = datetime.utcnow()
-
-        if self._last_execution_time and (now - self._last_execution_time) < self.throttle:
+        if self._throttle_lock.locked():
             return
 
-        await self.run(data)
-        self._last_execution_time = now
+        async with self._throttle_lock:
+            now = datetime.utcnow()
+            if self._last_execution_time and (now - self._last_execution_time) < self.throttle:
+                return
+
+            await self.run(data)
+            self._last_execution_time = datetime.utcnow()
 
     @abstractmethod
     async def run(self, data=None):
