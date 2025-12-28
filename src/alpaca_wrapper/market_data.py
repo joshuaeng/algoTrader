@@ -11,11 +11,11 @@ class AlpacaMarketData(AlpacaConnector):
     This class provides methods for retrieving historical and real-time market data from Alpaca.
     """
 
-    def __init__(self):
+    def __init__(self, api_key: str = None, secret_key: str = None, paper: bool = True):
         """
         Initializes the AlpacaMarketData class.
         """
-        super().__init__()
+        super().__init__(api_key, secret_key, paper)
         logger.info("Initializing AlpacaMarketData")
         self.historical_data_client = StockHistoricalDataClient(self.api_key, self.secret_key)
         self.stock_stream_client = StockDataStream(self.api_key, self.secret_key)

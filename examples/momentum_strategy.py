@@ -1,6 +1,7 @@
 
 import asyncio
 import sys
+import queue
 from typing import Any, Dict, List
 from collections import defaultdict
 from loguru import logger
@@ -21,8 +22,8 @@ class MomentumAgent(PeriodicAgent):
         self.fast_ma_period: int = self.config.get('fast_ma', 10)
         self.slow_ma_period: int = self.config.get('slow_ma', 30)
         self.trade_qty: int = self.config.get('trade_qty', 10)
-        
-        self.price_history: Dict[str, List[float]] = defaultdict(list)
+
+        self.price_history: Dict[str, queue.Queue] = defaultdict(lambda: queue.Queue(maxsize=self.slow_ma_period))
         self.positions: Dict[str, float] = defaultdict(float)
         self.momentum_is_bullish: Dict[str, bool] = defaultdict(bool)
 
@@ -37,24 +38,27 @@ class MomentumAgent(PeriodicAgent):
         instrument = spot_price.get("instrument")
         price = spot_price.get("value")
         if instrument and price:
-            self.price_history[instrument].append(price)
-            self.price_history[instrument] = self.price_history[instrument][-self.slow_ma_period:]
+            q = self.price_history[instrument]
+            if q.full():
+                q.get_nowait()
+            q.put_nowait(price)
 
     async def run(self):
         for instrument in self.instruments:
-            history = self.price_history[instrument]
-            if len(history) < self.slow_ma_period:
+            q = self.price_history[instrument]
+            if q.qsize() < self.slow_ma_period:
                 continue
 
+            history = list(q.queue)
             fast_ma = sum(history[-self.fast_ma_period:]) / self.fast_ma_period
             slow_ma = sum(history) / self.slow_ma_period
-            
+
             currently_bullish = fast_ma > slow_ma
             previously_bullish = self.momentum_is_bullish[instrument]
 
             buy_it = currently_bullish and not previously_bullish
             sell_it = not currently_bullish and previously_bullish
-            
+
             has_position = self.positions[instrument] > 0
 
             try:
@@ -72,10 +76,10 @@ class MomentumAgent(PeriodicAgent):
                         ticker=instrument, qty=position_qty, side='sell'
                     )
                     self.positions[instrument] = 0
-            
+
             except Exception as e:
                 logger.exception(f"Failed to submit order for {instrument}: {e}")
-            
+
             self.momentum_is_bullish[instrument] = currently_bullish
 
 
@@ -92,9 +96,9 @@ async def main():
     await trading_hub.add_agent(MomentumAgent, {
         'instruments': instruments, 
         'period': '10s',
-        'fast_ma': 10,
-        'slow_ma': 30,
-        'trade_qty': 15
+        'fast_ma': 50,
+        'slow_ma': 100,
+        'trade_qty': 10
     })
 
     await trading_hub.add_agent(PerformanceTrackerAgent, {'period': '30s'})

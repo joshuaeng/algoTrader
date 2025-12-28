@@ -71,8 +71,9 @@ async def main():
     logger.add(sys.stderr, level="INFO")
     logger.info("Setting up the TradingHub and its agents.")
 
-    # 1. Initialize the core components
-    trading_hub = TradingHub()
+    # 1. Initialize the core components with dummy API keys for example purposes
+    # In a real scenario, these would come from environment variables or a secure configuration.
+    trading_hub = TradingHub(api_key="YOUR_ALPACA_API_KEY", secret_key="YOUR_ALPACA_SECRET_KEY", paper=True)
 
     # 2. Define the instruments to trade
     instruments = ["AAPL", "MSFT"]

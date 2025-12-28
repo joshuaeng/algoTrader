@@ -13,11 +13,11 @@ from src.alpaca_wrapper.trading import AlpacaTrading
 class TradingHub:
     """The central engine for a trading strategy."""
 
-    def __init__(self):
+    def __init__(self, api_key: str = None, secret_key: str = None, paper: bool = True):
         """Initializes the TradingHub."""
-        self.alpaca_market_data: AlpacaMarketData = AlpacaMarketData()
+        self.alpaca_market_data: AlpacaMarketData = AlpacaMarketData(api_key, secret_key, paper)
         self.cache = DataCache()
-        self.alpaca_trading: AlpacaTrading = AlpacaTrading()
+        self.alpaca_trading: AlpacaTrading = AlpacaTrading(api_key, secret_key, paper)
         self.event_agents: List[EventDrivenAgent] = []
         self.periodic_agents: List[PeriodicAgent] = []
         # New subscription structure: channel -> symbol -> [agents]

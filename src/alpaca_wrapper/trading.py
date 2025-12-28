@@ -16,9 +16,9 @@ class AlpacaTrading(AlpacaConnector):
     thread. This prevents the synchronous calls from blocking the main asyncio
     event loop.
     """
-    def __init__(self):
+    def __init__(self, api_key: str = None, secret_key: str = None, paper: bool = True):
         """Initializes the synchronous Alpaca TradingClient."""
-        super().__init__()
+        super().__init__(api_key, secret_key, paper)
         self.client = TradingClient(self.api_key, self.secret_key, paper=self.paper)
 
     async def get_account(self):
