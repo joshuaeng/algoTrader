@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trading-algo"
+version = "0.1.0"
+authors = [
+  { name="joshuaengindeniz", email="117681341+joshuaeng@users.noreply.github.com" },
+]
+description = "A flexible, event-driven, multi-agent framework for building algorithmic trading strategies using the Alpaca API."
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "alpaca-py==0.42.1",
+    "annotated-types==0.7.0",
+    "certifi==2025.8.3",
+    "charset-normalizer==3.4.3",
+    "idna==3.10",
+    "msgpack==1.1.1",
+    "numpy",
+    "pandas",
+    "pydantic==2.11.7",
+    "pydantic_core==2.33.2",
+    "python-dateutil==2.9.0.post0",
+    "pytz==2025.2",
+    "requests==2.32.5",
+    "six==1.17.0",
+    "sseclient-py==1.8.0",
+    "typing-inspection==0.4.1",
+    "typing_extensions==4.15.0",
+    "tzdata==2025.2",
+    "urllib3==2.5.0",
+    "websockets==15.0.1",
+    "loguru~=0.7.3",
+    "matplotlib",
+    "multiprocess",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/joshuaengindeniz/tradingAlgo"
+"Bug Tracker" = "https://github.com/joshuaengindeniz/tradingAlgo/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -2,3 +2,11 @@ config.ini
 venv/
 .idea
 .DS_Store
+# Python build artifacts
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+__pycache__/
+.mypy_cache/
+.venv/
