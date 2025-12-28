@@ -4,7 +4,7 @@ from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
 from alpaca.common.exceptions import APIError
-from alpaca.trading.models import Account, Position, Order
+from alpaca.trading.models import Position, Order
 
 
 class AlpacaTrading(AlpacaConnector):
@@ -21,7 +21,7 @@ class AlpacaTrading(AlpacaConnector):
         super().__init__()
         self.client = TradingClient(self.api_key, self.secret_key, paper=self.paper)
 
-    async def get_account(self) -> Account:
+    async def get_account(self):
         """
         Asynchronously retrieves the current trading account information.
 
