@@ -87,8 +87,7 @@ async def main():
     logger.remove()
     logger.add(sys.stderr, level="INFO")
     logger.add("momentum_strategy.log", rotation="5 MB", level="DEBUG", catch=False)
-    
-    trading_hub = TradingHub()
+    trading_hub = TradingHub(api_key="YOUR_ALPACA_API_KEY", secret_key="YOUR_ALPACA_SECRET_KEY", paper=True)
     instruments = ["SPY", "QQQ", "IWM"]
 
     await trading_hub.add_agent(Spotter, {'instruments': instruments, 'throttle': '5s'})

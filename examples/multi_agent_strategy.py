@@ -70,21 +70,14 @@ async def main():
     logger.add("multi_agent_strategy.log", rotation="5 MB", level="DEBUG", catch=False)
     logger.add(sys.stderr, level="INFO")
     logger.info("Setting up the TradingHub and its agents.")
-
-    # 1. Initialize the core components with dummy API keys for example purposes
-    # In a real scenario, these would come from environment variables or a secure configuration.
     trading_hub = TradingHub(api_key="YOUR_ALPACA_API_KEY", secret_key="YOUR_ALPACA_SECRET_KEY", paper=True)
 
-    # 2. Define the instruments to trade
     instruments = ["AAPL", "MSFT"]
 
-    # 3. Instantiate and add agents to the hub
     await trading_hub.add_agent(Spotter, {'instruments': instruments, 'throttle': '5s'})
     await trading_hub.add_agent(SpreadCalculator, {'instruments': instruments, 'throttle': '200ms'})
     await trading_hub.add_agent(DeltaHedger, {'period': '30s'})
     await trading_hub.add_agent(Quoter, {'instruments': instruments, 'period': '5s'})
-
-    # 4. Start the hub. This will run until interrupted.
     await trading_hub.start()
 
 
