@@ -8,6 +8,7 @@ from src.core.communication_bus import CommunicationBus
 from src.core.data_cache import DataCache
 from src.data.data_types import DataObject
 
+
 class PerformanceTrackerAgent(PeriodicAgent):
     def __init__(self, config: Dict[str, Any], data_cache: DataCache, communication_bus: CommunicationBus):
         super().__init__(config, data_cache, communication_bus, period=config.get('period', '15s'))
@@ -47,7 +48,7 @@ class PerformanceTrackerAgent(PeriodicAgent):
             if new_filled_orders:
                 for order in sorted(new_filled_orders, key=lambda o: o.filled_at):
                     await self._process_trade(order)
-                    self.processed_order_ids.add(order.id)
+                    self.processed_order_ids.add(str(order.id))
             
             self._calculate_pnl()
             self._log_performance_summary()
@@ -79,10 +80,9 @@ class PerformanceTrackerAgent(PeriodicAgent):
             if current_price is None:
                 continue
 
-            trade_pnl = 0
             if trade["side"] == 'buy':
                 trade_pnl = (current_price - trade["price"]) * trade["qty"]
-            else: # sell
+            else:
                 trade_pnl = (trade["price"] - current_price) * trade["qty"]
             
             self.pnl_by_symbol[symbol] += trade_pnl
