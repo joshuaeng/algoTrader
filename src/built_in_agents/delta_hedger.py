@@ -54,7 +54,7 @@ class DeltaHedger(PeriodicAgent):
         if not self.trading_client:
             return
         try:
-            self.positions = self.trading_client.get_all_positions()
+            self.positions = await self.trading_client.get_all_positions()
             await self.update_instrument_scope()
         except Exception as e:
             logger.exception(f"DeltaHedger failed to get positions: {e}")
@@ -102,8 +102,7 @@ class DeltaHedger(PeriodicAgent):
             return
         try:
             # The trading client's submit method should be async or run in a thread
-            await asyncio.to_thread(
-                self.trading_client.submit_limit_order,
+            await self.trading_client.submit_limit_order(
                 ticker=ticker,
                 price=price,
                 qty=qty,
