@@ -52,20 +52,20 @@ class MomentumAgent(PeriodicAgent):
             currently_bullish = fast_ma > slow_ma
             previously_bullish = self.momentum_is_bullish[instrument]
 
-            is_golden_cross = currently_bullish and not previously_bullish
-            is_death_cross = not currently_bullish and previously_bullish
+            buy_it = currently_bullish and not previously_bullish
+            sell_it = not currently_bullish and previously_bullish
             
             has_position = self.positions[instrument] > 0
 
             try:
-                if is_golden_cross and not has_position:
+                if buy_it and not has_position:
                     logger.info(f"Golden Cross on {instrument}. Submitting BUY order for {self.trade_qty} shares.")
                     await self.trading_client.submit_market_order(
                         ticker=instrument, qty=self.trade_qty, side='buy'
                     )
                     self.positions[instrument] = self.trade_qty
 
-                elif is_death_cross and has_position:
+                elif sell_it and has_position:
                     position_qty = self.positions[instrument]
                     logger.info(f"Death Cross on {instrument}. Submitting SELL order for {position_qty} shares.")
                     await self.trading_client.submit_market_order(
