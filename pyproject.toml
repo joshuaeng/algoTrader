@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "trading-algo"
-version = "0.1.1"
+version = "0.1.2"
 authors = [
   { name="joshuaengindeniz", email="117681341+joshuaeng@users.noreply.github.com" },
 ]

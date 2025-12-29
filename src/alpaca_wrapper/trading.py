@@ -1,10 +1,11 @@
 import asyncio
 from src.alpaca_wrapper.base import AlpacaConnector
 from alpaca.trading.client import TradingClient
-from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
+from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest, GetOrdersRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
 from alpaca.common.exceptions import APIError
 from alpaca.trading.models import Position, Order
+from loguru import logger
 
 
 class AlpacaTrading(AlpacaConnector):
@@ -113,8 +114,16 @@ class AlpacaTrading(AlpacaConnector):
         Returns:
             list[Order]: A list of order objects.
         """
+        logger.debug("Attempting to retrieve all orders from Alpaca.")
         try:
-            return await asyncio.to_thread(self.client.get_orders)
+            # Create a GetOrdersRequest to fetch all orders
+            orders_request = GetOrdersRequest(status='all', limit=500)
+            orders = await asyncio.to_thread(self.client.get_orders, filter=orders_request)
+            logger.debug(f"Successfully retrieved {len(orders)} orders.")
+            return orders
         except APIError as e:
-            print(f"Error getting all orders: {e}")
+            logger.error(f"Alpaca API Error while getting all orders: {e}")
+            raise e
+        except Exception as e:
+            logger.error(f"An unexpected error occurred while getting all orders: {e}")
             raise e
