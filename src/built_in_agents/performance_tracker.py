@@ -90,12 +90,3 @@ class PerformanceTrackerAgent(PeriodicAgent):
     def _log_performance_summary(self):
         total_pnl = sum(self.pnl_by_symbol.values())
         logger.info(f"Strategy PNL: ${total_pnl:,.2f}")
-
-        pnl_items = self.pnl_by_symbol.items()
-        winners = sorted([f"{s}:${p:,.2f}" for s, p in pnl_items if p > 0], key=lambda item: float(item.split(':')[1]), reverse=True)
-        losers = sorted([f"{s}:${p:,.2f}" for s, p in pnl_items if p < 0], key=lambda item: float(item.split(':')[1]))
-
-        if winners:
-            logger.info(f"Top Winners: {', '.join(winners[:3])}")
-        if losers:
-            logger.info(f"Top Losers: {', '.join(losers[:3])}")
