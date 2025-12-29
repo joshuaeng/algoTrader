@@ -1,11 +1,13 @@
 import asyncio
-from typing import List, Set, Dict, Any
-
+from typing import List, Dict, Any
+from alpaca.data.models.bars import Bar
+from alpaca.data.models.quotes import Quote
+from alpaca.data.models.trades import Trade
 from loguru import logger
 
 from src.core.communication_bus import CommunicationBus
 from src.core.data_cache import DataCache
-from src.core.trading_agent import EventDrivenAgent, PeriodicAgent, TradingAgent
+from src.core.trading_agent import EventDrivenAgent, PeriodicAgent
 from src.alpaca_wrapper.market_data import AlpacaMarketData
 from src.alpaca_wrapper.trading import AlpacaTrading
 
@@ -81,24 +83,12 @@ class TradingHub:
         # Example: Infer channel and symbol based on common alpaca-py data object attributes
         if hasattr(data, 'symbol'):
             symbol = data.symbol
-        elif hasattr(data, 'S'): # For some bar data
-            symbol = data.S
 
-        if hasattr(data, 'msg_type'):
-            if data.msg_type == 'q':
-                channel = "quotes"
-            elif data.msg_type == 't':
-                channel = "trades"
-            elif data.msg_type == 'b': # Assuming 'b' for bars
-                channel = "bars"
-        elif hasattr(data, 'T'): # For some data types, 'T' indicates type
-            if data.T == 'q':
-                channel = "quotes"
-            elif data.T == 't':
-                channel = "trades"
-            elif data.T == 'b':
-                channel = "bars"
-        elif hasattr(data, 'open') and hasattr(data, 'close'): # Heuristic for bar data
+        if isinstance(data, Quote):
+            channel = "quotes"
+        elif isinstance(data, Trade):
+            channel = "trades"
+        elif isinstance(data, Bar):
             channel = "bars"
             
         if not channel or not symbol:
