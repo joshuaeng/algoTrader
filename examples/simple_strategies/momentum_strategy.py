@@ -87,23 +87,20 @@ async def main():
     logger.remove()
     logger.add(sys.stderr, level="INFO")
     logger.add("momentum_strategy.log", rotation="5 MB", level="DEBUG", catch=False)
-    trading_hub = TradingHub(
-        api_key="PKI55RLMAVSFPB3TALQDFABVPX",
-        secret_key="GdBXRDLT4d49EPC92W7siUFyqBdnrFk2hyd3fuZTzg9B", paper=True
-    )
-    instruments = ["SPY", "QQQ", "IWM"]
+    trading_hub = TradingHub()
+    instruments = ["VIXY"]
 
     await trading_hub.add_agent(Spotter, {'instruments': instruments, 'throttle': '5s'})
     
     await trading_hub.add_agent(MomentumAgent, {
         'instruments': instruments, 
-        'period': '10s',
+        'period': '1m',
         'fast_ma': 50,
         'slow_ma': 100,
         'trade_qty': 10
     })
 
-    await trading_hub.add_agent(PerformanceTrackerAgent, {'period': '30s'})
+    await trading_hub.add_agent(PerformanceTrackerAgent, {'period': '5m'})
 
     logger.info("TradingHub started.")
     await trading_hub.start()
