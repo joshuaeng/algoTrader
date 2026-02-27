@@ -1,195 +1,295 @@
 import asyncio
-from typing import Dict, Any
+import os
+import sys
+from typing import Dict, Any, List, Tuple
+from queue import Queue
+from dataclasses import dataclass
+from loguru import logger
+import math
 
 from src import PeriodicAgent, CommunicationBus, TradingHub, Spotter
 from src.core.data_cache import DataCache
 from src.data.data_types import DataObject
-from queue import Queue
-import math
-
-TRANSITION_MATRIX = [
-    [0.95, 0.05],  # (L->L, L->H)
-    [0.30, 0.70]   # (H->L, H->H)
-]
-
-INITIAL_STATE = (1, 0)
 
 
-class VolHMM:
+# ==================== HMM Implementation ====================
+
+@dataclass
+class RegimeProbabilities:
+    """Clear named probabilities for each regime"""
+    low: float  # Probability of low volatility regime
+    high: float  # Probability of high volatility regime
+
+
+class VolatilityHMM:
+    """
+    Hidden Markov Model for detecting volatility regimes in VIXY.
+
+    States:
+        - Low volatility: mean=15%, std=5%
+        - High volatility: mean=25%, std=10%
+
+    Transitions:
+        Low -> Low:   0.95  (stays in low)
+        Low -> High:  0.05  (switches to high)
+        High -> Low:  0.50  (switches to low)
+        High -> High: 0.50  (stays in high)
+    """
+
+    LOW_MEAN = 14.0  # VIX ~14 in calm markets
+    LOW_STD = 3.5  # typical range 10-18
+    HIGH_MEAN = 28.0  # VIX ~28 in stressed markets
+    HIGH_STD = 8.0  # wide range 20-45+
+
+    TRANS_LOW_TO_LOW = 0.981
+    TRANS_LOW_TO_HIGH = 0.019
+    TRANS_HIGH_TO_LOW = 0.051
+    TRANS_HIGH_TO_HIGH = 0.949
+
     @staticmethod
-    def gaussian_pdf(x, mu, sigma):
+    def gaussian_pdf(x: float, mu: float, sigma: float) -> float:
+        """Probability density of normal distribution"""
         return (1.0 / (sigma * math.sqrt(2 * math.pi))) * math.exp(
             -0.5 * ((x - mu) / sigma) ** 2
         )
 
-    @staticmethod
-    def high_regime_probability(
-        vol_obs: float,
-        prev_state_prob: list,   # [P(low), P(high)]
-        transition_matrix: list, # [[P(L->L), P(L->H)], [P(H->L), P(H->H)]]
-        low_params: tuple,       # (mu_L, sigma_L)
-        high_params: tuple       # (mu_H, sigma_H)
-    ) -> tuple:
+    @classmethod
+    def update_beliefs(cls,
+                       observed_vol: float,
+                       prior: RegimeProbabilities) -> RegimeProbabilities:
         """
-        Returns P(state = HIGH | observed vol)
-        """
+        Update regime beliefs using new observation.
 
-        # --- Prediction step (Markov transition)
-        p_low_pred  = (  # P(L)
-            prev_state_prob[0] * transition_matrix[0][0] +
-            prev_state_prob[1] * transition_matrix[1][0]
+        Args:
+            observed_vol: New volatility observation (%)
+            prior: Previous probabilities P(Low), P(High)
+
+        Returns:
+            Updated probabilities P(Low|obs), P(High|obs)
+        """
+        # --- Step 1: Predict next state using transition matrix
+        # P(Low_pred) = P(Low) * P(Low->Low) + P(High) * P(High->Low)
+        p_low_pred = (
+                prior.low * cls.TRANS_LOW_TO_LOW +
+                prior.high * cls.TRANS_HIGH_TO_LOW
         )
 
-        p_high_pred = (  # P(H)
-            prev_state_prob[0] * transition_matrix[0][1] +
-            prev_state_prob[1] * transition_matrix[1][1]
+        # P(High_pred) = P(Low) * P(Low->High) + P(High) * P(High->High)
+        p_high_pred = (
+                prior.low * cls.TRANS_LOW_TO_HIGH +
+                prior.high * cls.TRANS_HIGH_TO_HIGH
         )
 
-        # --- Emission likelihoods
-        mu_L, sigma_L = low_params
-        mu_H, sigma_H = high_params
+        # --- Step 2: Calculate likelihood of observation in each state
+        # P(obs | Low)
+        lik_low = cls.gaussian_pdf(observed_vol, cls.LOW_MEAN, cls.LOW_STD)
 
-        lik_low = VolHMM.gaussian_pdf(vol_obs, mu_L, sigma_L)  # P(V | S = L)
-        lik_high = VolHMM.gaussian_pdf(vol_obs, mu_H, sigma_H)  # P(V | S = H)
+        # P(obs | High)
+        lik_high = cls.gaussian_pdf(observed_vol, cls.HIGH_MEAN, cls.HIGH_STD)
 
-        # --- Bayesian update
-        unnorm_low = lik_low * p_low_pred  # P(L) x P(V | L) = P(V, L)
-        unnorm_high = lik_high * p_high_pred  # # P(H) x P(V | H) = P(V, H)
+        # --- Step 3: Update beliefs using Bayes rule
+        # Unnormalized posteriors: P(state) * P(obs|state)
+        unnorm_low = lik_low * p_low_pred
+        unnorm_high = lik_high * p_high_pred
 
+        # Normalize
         norm = unnorm_low + unnorm_high
 
-        # posterior
+        if norm == 0:
+            # Avoid division by zero - return prior
+            return prior
+
+        p_low_post = unnorm_low / norm
         p_high_post = unnorm_high / norm
-        p_low_post = 1 - p_high_post
 
-        return p_high_post, p_low_post
+        return RegimeProbabilities(low=p_low_post, high=p_high_post)
 
+
+# ==================== Agents ====================
 
 class VolSnapper(PeriodicAgent):
+    """
+    Collects VIXY spot prices and stores them for the HMM.
+    Runs every second and keeps a rolling window of recent prices.
+    """
+
     def __init__(self, config: Dict[str, Any], data_cache: DataCache, communication_bus: CommunicationBus):
-        """
-        The configuration dictionary should contain:
-        - 'period': period between each run
-        - 'snapshot_queue_size': size of the snapshot queue
-        """
         super().__init__(config, data_cache, communication_bus)
-        self.vols: Queue = Queue(maxsize=self.config.get('snapshot_queue_size', 100))
+        self.queue_size = self.config.get('snapshot_queue_size', 50)
+        self.price_queue: Queue = Queue(maxsize=self.queue_size)
+        self.recent_prices: List[float] = []  # For easier access
 
     def snap_spot(self, data_object: DataObject):
-        self.vols.put(data_object)
+        """Called whenever a new VIXY spot price arrives"""
+        price = data_object.get('value')
+        if price:
+            self.price_queue.put(price)
 
     async def initialize(self):
-        await self.communication_bus.subscribe_listener(f"SPOT_PRICE('VIXY')", self.snap_spot)
+        """Subscribe to VIXY spot prices"""
+        await self.communication_bus.subscribe_listener(
+            "SPOT_PRICE('VIXY')",
+            self.snap_spot
+        )
+        logger.info("VolSnapper initialized - watching VIXY")
 
     async def run(self):
-        self.data_cache.set('VOLS', self.vols)
+        """Periodically update the cache with recent prices"""
+        # Drain the queue into our list
+        while not self.price_queue.empty():
+            try:
+                price = self.price_queue.get_nowait()
+                self.recent_prices.append(price)
+            except:
+                break
+
+        # Keep only the most recent prices
+        if len(self.recent_prices) > self.queue_size:
+            self.recent_prices = self.recent_prices[-self.queue_size:]
+
+        # Store in cache for other agents
+        if self.recent_prices:
+            self.data_cache.set('VIXY_PRICES', self.recent_prices.copy())
+            logger.debug(f"Stored {len(self.recent_prices)} VIXY prices")
 
 
-class Signal(PeriodicAgent):
+class VolatilitySignal(PeriodicAgent):
+    """
+    Runs HMM on VIXY prices to detect volatility regime changes.
+    Publishes signals when regime probabilities shift significantly.
+    """
+
     def __init__(self, config: Dict[str, Any], data_cache: DataCache, communication_bus: CommunicationBus):
         super().__init__(config, data_cache, communication_bus)
-        self.current_state = self.config.get("initial_state")
+
+        # Start with high confidence in low regime
+        self.current_beliefs = RegimeProbabilities(low=0.99, high=0.01)
+        self.last_signal = None
+        self.min_data_points = config.get('min_data_points', 10)
 
     @staticmethod
-    def exponential_average(data, alpha: float) -> float:
-        """
-        Compute exponential average over a full dataset.
-
-        Parameters
-        ----------
-        data : iterable of float
-            Time-ordered data points.
-        alpha : float
-            Smoothing factor in (0,1].
-
-        Returns
-        -------
-        float
-            Final exponential average value.
-        """
+    def exponential_average(data: List[float], alpha: float) -> float:
+        """Compute exponential moving average"""
         if not data:
-            raise ValueError("data must not be empty")
+            return 0.0
 
-        if not (0 < alpha <= 1):
-            raise ValueError("alpha must be in (0,1]")
-
-        ema = data[0]  # deterministic seed
+        ema = data[0]
         for x in data[1:]:
             ema = alpha * x + (1 - alpha) * ema
-
         return ema
 
-    def get_signal(self, new_state: tuple):
-        prob_move = new_state[1] - self.current_state[1]
+    def get_signal_description(self, new_beliefs: RegimeProbabilities) -> str:
+        """
+        Generate human-readable signal based on probability changes.
+        Uses P(High) for thresholds since that's what we care about.
+        """
+        p_high = new_beliefs.high
+        p_high_prev = self.current_beliefs.high
+        prob_change = p_high - p_high_prev
 
-        if new_state[1] > 0.6 and prob_move > 0.05:
-            return "HIGH VOL / UP"
+        # Direction of change
+        direction = "UP" if prob_change > 0.01 else "DOWN" if prob_change < -0.01 else "STABLE"
 
-        if new_state[1] > 0.6 and prob_move < -0.05:
-            return "HIGH VOL / DOWN"
+        # Regime classification
+        if p_high > 0.7:
+            regime = "HIGH_VOL"
+        elif p_high < 0.3:
+            regime = "LOW_VOL"
+        else:
+            regime = "TRANSITION"
 
-        if 0.6 >= new_state[1] > 0.4 and prob_move > 0.05:
-            return "TRANSITION / UP"
+        # Only signal on significant moves
+        if abs(prob_change) < 0.02:
+            return None
 
-        if 0.6 >= new_state[1] > 0.4 and prob_move < -0.05:
-            return "TRANSITION / DOWN"
-
-        if 0.4 >= new_state[1] and prob_move > 0.05:
-            return "LOW VOL / UP"
-
-        if 0.4 >= new_state[1] and prob_move < -0.05:
-            return "LOW VOL / DOWN"
+        return f"{regime}_{direction}"
 
     async def run(self):
-        vols = self.data_cache.get('SPOTS')
+        """Periodically run HMM and publish signals"""
+        # Get recent prices from cache
+        prices = self.data_cache.get('VIXY_PRICES')
 
-        if not vols:
+        if not prices or len(prices) < self.min_data_points:
+            logger.debug(f"Not enough data: {len(prices) if prices else 0}/{self.min_data_points}")
             return
 
-        vols: list[float] = [vol.value for vol in vols]
-        exp_average = self.exponential_average(vols, alpha=0.4)
+        # Calculate smoothed volatility (using price as proxy for VIXY level)
+        # For VIXY, price IS the volatility level
+        smooth_vol = self.exponential_average(prices, alpha=0.3)
 
-        vol_hmm = VolHMM()
-        new_state = vol_hmm.high_regime_probability(
-            vol_obs=exp_average,
-            transition_matrix=TRANSITION_MATRIX,
-            low_params=(15, 5),
-            high_params=(25, 10),
-            prev_state_prob=self.current_state
+        # Update HMM beliefs
+        new_beliefs = VolatilityHMM.update_beliefs(
+            observed_vol=smooth_vol,
+            prior=self.current_beliefs
         )
 
-        signal = self.get_signal(new_state)
-        self.current_state = new_state
+        # Generate signal
+        signal = self.get_signal_description(new_beliefs)
 
-        await self.communication_bus.publish('SIGNAL', signal)
+        # Publish if signal changed significantly
+        if signal and signal != self.last_signal:
+            logger.info(f"🔥 SIGNAL: {signal} | P(High)={new_beliefs.high:.2f} | VIXY={smooth_vol:.2f}")
+            await self.communication_bus.publish('VOLATILITY_SIGNAL', signal)
+            self.last_signal = signal
 
+        # Update state
+        self.current_beliefs = new_beliefs
+
+        # Also publish probabilities for other agents
+        prob_data = {
+            'p_low': new_beliefs.low,
+            'p_high': new_beliefs.high,
+            'vixy': smooth_vol,
+            'timestamp': asyncio.get_event_loop().time()
+        }
+        await self.communication_bus.publish('REGIME_PROBS', prob_data)
+
+
+# ==================== Main ====================
 
 async def main():
-    """Main function to set up and run the algorithm."""
+    """Set up and run the volatility regime detector"""
+
+    api_key = os.getenv('APCA_API_KEY_ID', "here")
+    secret_key = os.getenv('APCA_API_SECRET_KEY', "here")
 
     trading_hub = TradingHub(
-        api_key="",
-        secret_key="", paper=True
+        api_key=api_key,
+        secret_key=secret_key,
+        paper=True
     )
-    instruments = ["VIXY"]
-    await trading_hub.add_agent(Spotter, {'instruments': instruments, 'throttle': '1s'})
-    await trading_hub.add_agent(VolSnapper, {'period': '1s', 'snapshot_queue_size': 10})
-    await trading_hub.add_agent(Signal, {'period': '1s', 'initial_state': INITIAL_STATE})
+
+    # Agent 1: Get VIXY spot prices
+    await trading_hub.add_agent(Spotter, {
+        'instruments': ["VIXY"],
+        'throttle': '1s',
+        'fair_price_method': 'mid'  # Use mid price for VIXY
+    })
+
+    # Agent 2: Collect price snapshots
+    await trading_hub.add_agent(VolSnapper, {
+        'period': '1s',
+        'snapshot_queue_size': 100  # Keep last 100 prices
+    })
+
+    # Agent 3: Run HMM and generate signals
+    await trading_hub.add_agent(VolatilitySignal, {
+        'period': '2s',  # Run every 2 seconds
+        'min_data_points': 20  # Need 20 prices before starting
+    })
+
+    logger.info("Starting Volatility Regime Detector for VIXY")
+    logger.info("Signals: HIGH_VOL_UP/DOWN, LOW_VOL_UP/DOWN, TRANSITION_UP/DOWN")
+
     await trading_hub.start()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    logger.remove()
+    logger.add(sys.stderr, level="INFO")
+    logger.add("momentum_strategy.log", rotation="5 MB", level="DEBUG", catch=False)
 
-
-
-
-
-
-
-
-
-
-
-
-
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Shutting down...")
