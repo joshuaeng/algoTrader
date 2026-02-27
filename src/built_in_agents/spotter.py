@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 
 from loguru import logger
 
@@ -38,21 +38,19 @@ class Spotter(EventDrivenAgent):
     def _calculate_fair_price(self, bid_price, ask_price, bid_size, ask_size) -> Optional[float]:
         """Calculates the fair price based on the configured method."""
         fair_price_method = self.config.get('fair_price_method', 'crossed_vwap')
+        correction = 2 if (bid_price == 0 or ask_price == 0) else 1  # corrects the fair price in case one-sided
+
         if fair_price_method == 'crossed_vwap':
-            return (bid_price * ask_size + ask_price * bid_size) / (bid_size + ask_size)
+            return correction * (bid_price * ask_size + ask_price * bid_size) / (bid_size + ask_size)
         elif fair_price_method == 'vwap':
-            return (bid_price * bid_size + ask_price * ask_size) / (bid_size + ask_size)
+            return correction * (bid_price * bid_size + ask_price * ask_size) / (bid_size + ask_size)
         else: # mid
-            return (bid_price + ask_price) / 2
+            return correction * (bid_price + ask_price) / 2
 
     async def run(self, data=None):
         """Processes incoming quote data to calculate and cache the spot price."""
         logger.info(f"Spotter received data: {data}")
         instrument = getattr(data, 'symbol', None)
-        # The hub now handles filtering, so this check is no longer needed here
-        # if not instrument or instrument not in self.instruments:
-        #     return
-
         now = datetime.utcnow()
 
         try:
